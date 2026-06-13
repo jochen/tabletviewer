@@ -267,7 +267,13 @@ def create_app():
     app.router.add_post("/api/list", handle_post_list)
     app.router.add_post("/api/active", handle_post_active)
     app.router.add_get("/ws", handle_ws)
-    # Titelbilder ausliefern, falls das Verzeichnis existiert.
+    # Titelbilder ausliefern. Verzeichnis sicherstellen, damit die Route IMMER
+    # existiert - auch wenn images/ erst nach dem Serverstart befuellt wird
+    # (Gaston legt Bilder spaeter ab). add_static braucht ein existierendes Dir.
+    try:
+        os.makedirs(IMAGES_DIR, exist_ok=True)
+    except OSError as e:
+        log.warning("Konnte Bildverzeichnis %s nicht anlegen: %s", IMAGES_DIR, e)
     if os.path.isdir(IMAGES_DIR):
         app.router.add_static("/recipe-images/", IMAGES_DIR, name="recipe_images")
     app.router.add_static("/static/", STATIC_DIR, name="static")
