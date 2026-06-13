@@ -53,14 +53,45 @@ the OpenClaw workspace.
 - **Recipe content** is rendered from those files; the **selection** (which tiles
   appear in the overview) comes from Gaston, not from a directory scan.
 
-## Gaston's role (needs a tool/filing instruction)
+## OpenClaw integration (Gaston → viewer)
 
-Gaston must know the constraints so it curates and displays sensibly:
+**Decision:** the viewer is a **standalone small web service on clawdpi1** with a
+plain HTTP control API — **not an OpenClaw plugin**. This follows the exact
+pattern Gaston already uses to drive other devices (cf. `TOOLS_WLED.md`,
+`TV-SKRIPT.md` in the workspace): a `TOOLS_*.md` documents `curl` commands that
+Gaston runs via its shell tool.
 
-- Which recipes belong on the selection list right now (3–6, from the meal plan).
-- How it triggers "show recipe X as active now".
-- The **recipe format** (see below) — which we can standardize on demand and give
-  Gaston as a writing/filing rule.
+Rationale against a plugin (the `openclaw-honcho` path): TypeScript + build +
+allow-list + plugin maintenance would be overkill and against "keep it simple".
+The viewer stays fully decoupled (separately startable/testable, its own systemd
+service). The plugin path (native structured tool calls) remains a possible later
+refinement.
+
+### Viewer control API
+
+Own service on a free port (proposed **8080**), NOT via the OpenClaw gateway (18789).
+
+| Route | Purpose |
+|---|---|
+| `GET /` | the WallPanel UI (static HTML/CSS/JS) |
+| `GET /api/state` | current state (list + active recipe); also polling fallback |
+| `POST /api/list` `{"recipes":["butter-chicken",…]}` | set curated tiles |
+| `POST /api/active` `{"recipe":"butter-chicken"}` | "jump to recipe X now" |
+| `WS /ws` | tablet subscribes, server pushes state changes |
+
+### Gaston's instruction
+
+A new `TOOLS_TABLETVIEWER.md` in the OpenClaw workspace (like `TOOLS_WLED.md`)
+tells Gaston the device, format and the `curl` commands, e.g.:
+
+```bash
+curl -s -X POST http://localhost:8080/api/active -d '{"recipe":"butter-chicken"}'
+```
+
+Gaston must know the constraints so it curates and displays sensibly: which
+recipes go on the selection list (3–6, from the meal plan), how to make a recipe
+active, and the **recipe format** (see below), which we can standardize on demand
+and give Gaston as a writing/filing rule.
 
 ## Recipe format
 

@@ -56,15 +56,46 @@ Markdown-Rezepte aus dem OpenClaw-Workspace an.
 - **Rezept-Inhalt** wird aus diesen Dateien gerendert; die **Auswahl** (welche
   Kacheln in der Übersicht) kommt von Gaston, nicht aus einem Verzeichnis-Scan.
 
-## Gastons Rolle (Tool-/Ablageanweisung nötig)
+## OpenClaw-Anbindung (Gaston → Viewer)
+
+**Entscheidung:** Der Viewer ist ein **eigenständiger Mini-Webdienst auf clawdpi1**
+mit schlichter HTTP-Steuer-API — **kein OpenClaw-Plugin**. Das folgt exakt dem
+bestehenden Muster, mit dem Gaston schon andere Geräte steuert (vgl.
+`TOOLS_WLED.md`, `TV-SKRIPT.md` im Workspace): ein `TOOLS_*.md` dokumentiert
+`curl`-Befehle, die Gaston über sein Shell-Tool ausführt.
+
+Begründung gegen ein Plugin (`openclaw-honcho`-Pfad): TypeScript + Build +
+Allow-List + Plugin-Wartung wären Overkill und gegen „muss einfach sein". Der
+Viewer bleibt so voll entkoppelt (separat startbar/testbar, eigener systemd-Dienst).
+Der Plugin-Pfad (native, strukturierte Tool-Calls) bleibt als spätere Veredelung
+offen.
+
+### Steuer-API des Viewers
+
+Eigener Dienst auf freiem Port (Vorschlag **8080**), NICHT über das OpenClaw-
+Gateway (18789).
+
+| Route | Zweck |
+|---|---|
+| `GET /` | die WallPanel-UI (statisches HTML/CSS/JS) |
+| `GET /api/state` | aktueller Zustand (Liste + aktives Rezept); auch Polling-Fallback |
+| `POST /api/list` `{"recipes":["butter-chicken",…]}` | kuratierte Kacheln setzen |
+| `POST /api/active` `{"recipe":"butter-chicken"}` | „spring jetzt auf Rezept X" |
+| `WS /ws` | Tab abonniert, Server pusht Zustandsänderungen |
+
+### Gastons Anweisung
+
+Ein neues `TOOLS_TABLETVIEWER.md` im OpenClaw-Workspace (wie `TOOLS_WLED.md`)
+erklärt Gaston Gerät, Format und die `curl`-Befehle, z. B.:
+
+```bash
+curl -s -X POST http://localhost:8080/api/active -d '{"recipe":"butter-chicken"}'
+```
 
 Gaston muss über die Gegebenheiten Bescheid wissen, damit er sinnvoll kuratiert
-und anzeigt:
-
-- Welche Rezepte gerade auf die Auswahlliste sollen (3–6, aus dem Wochenplan).
-- Wie er „zeige Rezept X jetzt aktiv" auslöst.
-- Das **Rezept-Format** (siehe unten) — das wir bei Bedarf vereinheitlichen und
-  Gaston als Schreib-/Ablageregel vorgeben können.
+und anzeigt: welche Rezepte auf die Auswahlliste (3–6, aus dem Wochenplan), wie
+er ein Rezept aktiv schaltet, und das **Rezept-Format** (siehe unten), das wir
+bei Bedarf vereinheitlichen und Gaston als Schreib-/Ablageregel vorgeben können.
 
 ## Rezept-Format
 
