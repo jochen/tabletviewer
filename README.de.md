@@ -27,11 +27,17 @@ Markdown-Rezepte aus dem OpenClaw-Workspace an.
 - **Modus „Auswahlliste" (Default/Leerlauf):** wenige große Kacheln (3–6),
   **kuratiert von Gaston** aus dem Wochen-/Essensplan der nächsten Tage —
   bewusst NICHT die ganze Rezept-Bibliothek. Tippen → „Aktives Rezept".
-- **Modus „Aktives Rezept":** durchblätterbare Karten. **Zutaten = eine Karte,
-  danach je ein Zubereitungsschritt pro Karte.** Navigation über zwei große
-  Tap-Zonen links/rechts (vor/zurück), KEIN freies Scrollen (verrutscht beim
-  Kochen mit fettigen Fingern). Plus **Zurück-Button** zurück zur Auswahlliste.
-  Begründung 7-Zoll: Schrift groß, daher passt ein Rezept nie auf einen Screen.
+- **Modus „Aktives Rezept":** durchblätterbare Karten in fester Reihenfolge:
+  1. **Titelseite** — großes Emoji-Icon (bzw. später Titelbild), Rezepttitel,
+     Metadaten-Badges. Hält die Meta-Angaben von der Zutaten-Karte fern.
+  2. **Zutaten** — bei Bedarf über mehrere Seiten (gruppenbewusst: Über­schriften
+     werden nie verwaist, sondern auf der Folgeseite wiederholt).
+  3. **Schritte** — **höhen-basierte Auto-Verteilung:** pro Karte so viele
+     (kurze) Schritte, wie komfortabel passen; lange Schritte ggf. allein. Wird
+     beim Drehen neu berechnet (clientseitig gemessen).
+  Navigation über zwei große Tap-Zonen links/rechts (vor/zurück), KEIN freies
+  Scrollen (verrutscht beim Kochen mit fettigen Fingern). Plus **Zurück-Button**
+  zur Auswahlliste; ab Seite 2 läuft der Rezepttitel klein in der Kopfleiste mit.
 - **Display-Wecken / kein Auto-Dimmen:** ist **WallPanel-Konfiguration**, NICHT
   Sache der Web-App. Beim Kochen Screen-Timeout aus / lang stellen.
 

@@ -24,11 +24,17 @@ the OpenClaw workspace.
 - **"Selection list" mode (default/idle):** a few large tiles (3–6),
   **curated by Gaston** from the meal plan for the next days — deliberately NOT
   the whole recipe library. Tapping → "Active recipe".
-- **"Active recipe" mode:** swipeable cards. **Ingredients = one card, then one
-  preparation step per card.** Navigation via two large left/right tap zones
-  (next/back), NO free scrolling (slips while cooking with greasy fingers). Plus
-  a **back button** to return to the selection list. Rationale for 7": type stays
-  large, so a recipe never fits on a single screen.
+- **"Active recipe" mode:** paged cards in a fixed order:
+  1. **Title page** — large emoji icon (or a future cover image), recipe title,
+     metadata badges. Keeps the meta lines off the ingredients card.
+  2. **Ingredients** — across multiple pages if needed (group-aware: headings are
+     never orphaned, they repeat on the continuation page).
+  3. **Steps** — **height-based auto-fill:** as many (short) steps per card as
+     comfortably fit; long steps may stand alone. Recomputed on rotation
+     (measured client-side).
+  Navigation via two large left/right tap zones (next/back), NO free scrolling
+  (slips while cooking with greasy fingers). Plus a **back button** to the
+  selection list; from page 2 on, the recipe title shows small in the header.
 - **Display wake / no auto-dimming:** this is **WallPanel configuration**, NOT
   the web app's job. Turn screen timeout off / long while cooking.
 
