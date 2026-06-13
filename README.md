@@ -1,87 +1,90 @@
 # tabletviewer
 
-Rezept-Anzeige für ein wandmontiertes Küchen-Tablet, bedient/gespeist über
-clawdpi1 (OpenClaw/Gaston). Zeigt eine von Gaston kuratierte Auswahl der
-Markdown-Rezepte aus dem OpenClaw-Workspace an.
+Recipe display for a wall-mounted kitchen tablet, driven by clawdpi1
+(OpenClaw/Gaston). Shows a Gaston-curated selection of the Markdown recipes from
+the OpenClaw workspace.
 
-> Voller Konzeptstand auch im MemPalace: Wing `clawdpi1-home-pi`, Room
-> `decisions`. Diese README ist die lokale Arbeitsfassung.
+> The German `README.de.md` is the primary, authoritative version; this English
+> `README.md` is kept in sync from it (GitHub default). Code, commit and PR
+> language: English.
 
-## Zielplattform
+## Target platform
 
-- **Gerät:** Amazon Fire 7, 5. Gen (2015), **Android 5.1**, Auflösung **1024×600**.
-- **Anzeige:** WallPanel-WebView (bereits installiert). Gewählt statt Fully Kiosk,
-  weil Fully den Android-5-Support eingestellt hat. Gepflegter Fork:
-  `TheTimeWalker/wallpanel-android` (wallpanel.xyz), falls Neuinstallation nötig.
-- **Hauptrisiko:** die **alte WebView-Komponente** auf Android 5.1 rendert
-  moderne CSS/JS nicht zuverlässig. → Web-App MUSS bewusst schlicht sein:
-  einfaches HTML/CSS, keine modernen Framework-Spielereien.
-- Optimiert für 1024×600, **große Schrift (ohne Brille lesbar)**, fettfinger-tauglich.
+- **Device:** Amazon Fire 7, 5th gen (2015), **Android 5.1**, resolution **1024×600**.
+- **Display:** WallPanel WebView (already installed). Chosen over Fully Kiosk
+  because Fully dropped Android 5 support. Maintained fork:
+  `TheTimeWalker/wallpanel-android` (wallpanel.xyz) if a reinstall is needed.
+- **Main risk:** the **old WebView component** on Android 5.1 does not render
+  modern CSS/JS reliably. → The web app MUST be deliberately plain: simple
+  HTML/CSS, no modern framework trickery.
+- Optimized for 1024×600, **large type (readable without glasses)**, fat-finger friendly.
 
-## Bedienkonzept (zwei Modi, eine Oberfläche)
+## Interaction model (two modes, one surface)
 
-- **Modus „Auswahlliste" (Default/Leerlauf):** wenige große Kacheln (3–6),
-  **kuratiert von Gaston** aus dem Wochen-/Essensplan der nächsten Tage —
-  bewusst NICHT die ganze Rezept-Bibliothek. Tippen → „Aktives Rezept".
-- **Modus „Aktives Rezept":** durchblätterbare Karten. **Zutaten = eine Karte,
-  danach je ein Zubereitungsschritt pro Karte.** Navigation über zwei große
-  Tap-Zonen links/rechts (vor/zurück), KEIN freies Scrollen (verrutscht beim
-  Kochen mit fettigen Fingern). Plus **Zurück-Button** zurück zur Auswahlliste.
-  Begründung 7-Zoll: Schrift groß, daher passt ein Rezept nie auf einen Screen.
-- **Display-Wecken / kein Auto-Dimmen:** ist **WallPanel-Konfiguration**, NICHT
-  Sache der Web-App. Beim Kochen Screen-Timeout aus / lang stellen.
+- **"Selection list" mode (default/idle):** a few large tiles (3–6),
+  **curated by Gaston** from the meal plan for the next days — deliberately NOT
+  the whole recipe library. Tapping → "Active recipe".
+- **"Active recipe" mode:** swipeable cards. **Ingredients = one card, then one
+  preparation step per card.** Navigation via two large left/right tap zones
+  (next/back), NO free scrolling (slips while cooking with greasy fingers). Plus
+  a **back button** to return to the selection list. Rationale for 7": type stays
+  large, so a recipe never fits on a single screen.
+- **Display wake / no auto-dimming:** this is **WallPanel configuration**, NOT
+  the web app's job. Turn screen timeout off / long while cooking.
 
-## Architektur
+## Architecture
 
-- Schlanke Web-App auf **clawdpi1** (Pi mit OpenClaw/Gaston). NICHT auf grogu
-  (Internet-Server, ausdrücklich unerwünscht). Alles lokal im selben WLAN.
-- **Direkte Verbindung** Tab ↔ clawdpi1. **Kein MQTT** (bleibt der Haussteuerung
-  vorbehalten). Kein Honcho (abgeschafft).
-- **Push von Gaston ans Tab:** Gaston sagt „spring jetzt auf Rezept X" bzw. setzt
-  die kuratierte Auswahlliste. WebSocket bevorzugt, Polling als simpler Fallback.
-- Petras bestehende Browser-Extension schickt Rezepte weiterhin an Gaston. Das
-  Tab ist Anzeige + kuratierte Auswahl, **keine eigene Eingabe**.
+- Lean web app on **clawdpi1** (the Pi running OpenClaw/Gaston). NOT on grogu
+  (internet server, explicitly unwanted). Everything local on the same Wi-Fi.
+- **Direct connection** tablet ↔ clawdpi1. **No MQTT** (reserved for home
+  automation). No Honcho (abandoned).
+- **Push from Gaston to the tablet:** Gaston says "jump to recipe X now" or sets
+  the curated selection list. **Transport: WebSocket** (the tablet keeps the
+  connection open), **polling as an automatic fallback** if the Android 5.1
+  WebView struggles with WS.
+- Petra's existing browser extension keeps sending recipes to Gaston. The tablet
+  is display + curated selection, **no input of its own**.
 
-## Datenquelle
+## Data source
 
-- **Single source of truth:** die Markdown-Rezepte in
-  `/home/pi/.openclaw/workspace/rezepte/` (Gastons feste Ablageregel: immer in
-  `rezepte/`, sprechende Dateinamen). Kein neues Datenmodell.
-- **Rezept-Inhalt** wird aus diesen Dateien gerendert; die **Auswahl** (welche
-  Kacheln in der Übersicht) kommt von Gaston, nicht aus einem Verzeichnis-Scan.
+- **Single source of truth:** the Markdown recipes in
+  `/home/pi/.openclaw/workspace/rezepte/` (Gaston's fixed filing rule: always in
+  `rezepte/`, descriptive file names). No new data model.
+- **Recipe content** is rendered from those files; the **selection** (which tiles
+  appear in the overview) comes from Gaston, not from a directory scan.
 
-## Gastons Rolle (Tool-/Ablageanweisung nötig)
+## Gaston's role (needs a tool/filing instruction)
 
-Gaston muss über die Gegebenheiten Bescheid wissen, damit er sinnvoll kuratiert
-und anzeigt:
+Gaston must know the constraints so it curates and displays sensibly:
 
-- Welche Rezepte gerade auf die Auswahlliste sollen (3–6, aus dem Wochenplan).
-- Wie er „zeige Rezept X jetzt aktiv" auslöst.
-- Das **Rezept-Format** (siehe unten) — das wir bei Bedarf vereinheitlichen und
-  Gaston als Schreib-/Ablageregel vorgeben können.
+- Which recipes belong on the selection list right now (3–6, from the meal plan).
+- How it triggers "show recipe X as active now".
+- The **recipe format** (see below) — which we can standardize on demand and give
+  Gaston as a writing/filing rule.
 
-## Rezept-Format
+## Recipe format
 
-Die bestehenden Dateien sind regelmäßiges Markdown — ein Standard-Renderer reicht
-für den Großteil. Aufbau jeder Datei:
+The existing files are regular Markdown — a standard renderer covers most of it.
+Layout of each file:
 
-1. `# Titel` (H1, oft mit Emoji am Anfang oder Ende)
-2. **Metadaten-Block:** `**Key:** Value`-Zeilen mit Hard-Break (2 Spaces),
-   teils pipe-getrennt. Keys variieren stark (Quelle, Link, Kategorie, Datum,
-   Zubereitungszeit, Wartezeit, Menge, Portionen, Schwierigkeit, Kalorien,
-   Bewertung …).
-3. Optionaler `---` Trenner
-4. `## Zutaten` — optional `### Für X`-Untergruppen, `-`-Listen (teils **fett**)
-5. `## Zubereitung` — nummerierte Liste (teils mit **fetten** Leadwörtern)
-6. Optional: `## Servieren`, Tipps, Aufbewahrung, Quelle am Ende
+1. `# Title` (H1, often with an emoji at the start or end)
+2. **Metadata block:** `**Key:** Value` lines with hard breaks (2 spaces),
+   sometimes pipe-separated. Keys vary a lot (source, link, category, date,
+   prep time, resting time, quantity, servings, difficulty, calories, rating …).
+3. Optional `---` divider
+4. `## Ingredients` — optional `### For X` subgroups, `-` lists (sometimes **bold**)
+5. `## Preparation` — numbered list (sometimes with **bold** lead words)
+6. Optional: `## Serving` / tips / storage / source at the end
 
-### Rendering-Hinweise
+### Rendering notes
 
-- Die nummerierte `## Zubereitung`-Liste mappt 1:1 auf je eine Schritt-Karte;
-  `## Zutaten` wird die Zutaten-Karte. Sauber für den Karten-Blätter-Modus.
-- Metadaten-Block ist das einzig Unstrukturierte. Optionales Parsing per Regex
-  `^\*\*(.+?):\*\*\s*(.+)$` → Badges. Keine strikte Feld-Extraktion erzwingen,
-  da Keys inkonsistent.
-- Führendes Emoji im Titel als Karten-Icon nutzen.
-- **Bei Bedarf vereinheitlichen:** Format kann als festes Schema definiert und
-  Gaston als Ablageregel vorgegeben werden — dann wird das Rendering noch simpler.
+- The numbered `## Preparation` list maps 1:1 onto one step card each;
+  `## Ingredients` becomes the ingredients card. Clean for the card-swipe mode.
+- The metadata block is the only unstructured part. Optional parsing via regex
+  `^\*\*(.+?):\*\*\s*(.+)$` → badges. Do not force strict field extraction, as
+  keys are inconsistent.
+- Use the leading title emoji as the card icon.
+- **Standardize on demand:** the format can be fixed as a schema and given to
+  Gaston as a filing rule, making rendering even simpler. **Decision:** start
+  with the as-is state (tolerant renderer over the existing 9 files); impose a
+  schema only once the viewer exists and we see what breaks.
