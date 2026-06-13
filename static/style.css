@@ -46,8 +46,9 @@ html, body {
 
 .tile {
   width: 290px;
-  height: 200px;
+  min-height: 200px;
   margin: 12px;
+  padding: 16px 14px;
   background: #ffffff;
   border: 4px solid #d8c9b0;
   border-radius: 16px;
@@ -73,10 +74,9 @@ html, body {
 }
 
 .tile-title {
-  font-size: 28px;
-  padding: 0 10px;
+  font-size: 27px;
   color: #333;
-  line-height: 1.2;
+  line-height: 1.18;
 }
 
 .list-empty {
@@ -262,7 +262,7 @@ html, body {
 @media (orientation: portrait) {
   .tile {
     width: 250px;
-    height: 190px;
+    min-height: 190px;
     margin: 10px;
   }
 
