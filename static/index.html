@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1024, height=600, initial-scale=1, user-scalable=no">
+<title>Rezepte</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<div id="list-view" class="view">
+  <h1 class="list-title">Rezepte</h1>
+  <div id="tiles"></div>
+</div>
+
+<div id="active-view" class="view" style="display:none;">
+  <div id="zone-back" class="back-button">&larr; Zurück</div>
+  <div id="card-indicator" class="card-indicator"></div>
+
+  <div id="zone-left" class="tap-zone tap-left"></div>
+  <div id="zone-right" class="tap-zone tap-right"></div>
+
+  <div id="card-content" class="card-content"></div>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>

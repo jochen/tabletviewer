@@ -6,3 +6,13 @@ build/
 .DS_Store
 .env
 .env.local
+
+# Python
+__pycache__/
+*.pyc
+
+# Laufzeit-Zustand (wird vom Server erzeugt, nicht versionieren)
+state.json
+
+# Lokale Claude-Code-Einstellungen
+.claude/settings.local.json

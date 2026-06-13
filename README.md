@@ -119,3 +119,18 @@ Layout of each file:
   Gaston as a filing rule, making rendering even simpler. **Decision:** start
   with the as-is state (tolerant renderer over the existing 9 files); impose a
   schema only once the viewer exists and we see what breaks.
+
+## Running
+
+- **Stack:** Python 3 + `aiohttp` (already present system-wide on clawdpi1, no
+  extra dependencies, no venv needed).
+- **Start:** `python3 server.py` (from the project directory).
+- **Env vars:**
+  - `TABLETVIEWER_PORT` — port (default `8080`)
+  - `TABLETVIEWER_RECIPES_DIR` — recipe directory (default
+    `/home/pi/.openclaw/workspace/rezepte`)
+- **As a service:** copy `systemd/tabletviewer.service` to
+  `/etc/systemd/system/`, then `systemctl enable --now tabletviewer`.
+- **Runtime state:** kept in `state.json` (gitignored).
+- **Gaston control:** see `docs/TOOLS_TABLETVIEWER.md` — `curl` against the
+  control API (`/api/list`, `/api/active`).

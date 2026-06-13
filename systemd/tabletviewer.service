@@ -1,0 +1,18 @@
+[Unit]
+Description=tabletviewer - Rezept-Anzeige fuer das Kuechen-Tablet (WallPanel)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/projects/tabletviewer
+ExecStart=/usr/bin/python3 /home/pi/projects/tabletviewer/server.py
+Restart=on-failure
+RestartSec=5
+# Optional: Port / Rezept-Verzeichnis ueberschreiben
+# Environment=TABLETVIEWER_PORT=8080
+# Environment=TABLETVIEWER_RECIPES_DIR=/home/pi/.openclaw/workspace/rezepte
+
+[Install]
+WantedBy=multi-user.target

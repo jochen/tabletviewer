@@ -122,5 +122,20 @@ für den Großteil. Aufbau jeder Datei:
 - Führendes Emoji im Titel als Karten-Icon nutzen.
 - **Bei Bedarf vereinheitlichen:** Format kann als festes Schema definiert und
   Gaston als Ablageregel vorgegeben werden — dann wird das Rendering noch simpler.
+
+## Betrieb
+
+- **Stack:** Python 3 + `aiohttp` (auf clawdpi1 bereits system-weit vorhanden,
+  keine zusätzlichen Abhängigkeiten, kein venv nötig).
+- **Start:** `python3 server.py` (im Projektverzeichnis).
+- **Env-Variablen:**
+  - `TABLETVIEWER_PORT` — Port (Default `8080`)
+  - `TABLETVIEWER_RECIPES_DIR` — Rezept-Verzeichnis (Default
+    `/home/pi/.openclaw/workspace/rezepte`)
+- **Als Dienst:** `systemd/tabletviewer.service` nach
+  `/etc/systemd/system/` kopieren, dann `systemctl enable --now tabletviewer`.
+- **Laufzeit-Zustand:** wird in `state.json` gehalten (gitignored).
+- **Gaston-Steuerung:** siehe `docs/TOOLS_TABLETVIEWER.md` — `curl` gegen die
+  Steuer-API (`/api/list`, `/api/active`).
   **Entscheidung:** zunächst Ist-Zustand (toleranter Renderer auf die bestehenden
   9 Dateien), Schema-Vorgabe erst, wenn der Viewer steht und wir sehen, was hakt.
