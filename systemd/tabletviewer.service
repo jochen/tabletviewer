@@ -1,13 +1,11 @@
 [Unit]
 Description=tabletviewer - Rezept-Anzeige fuer das Kuechen-Tablet (WallPanel)
 After=network-online.target
-Wants=network-online.target
 
 [Service]
 Type=simple
-User=pi
-WorkingDirectory=/home/pi/projects/tabletviewer
-ExecStart=/usr/bin/python3 /home/pi/projects/tabletviewer/server.py
+WorkingDirectory=%h/projects/tabletviewer
+ExecStart=/usr/bin/python3 %h/projects/tabletviewer/server.py
 Restart=on-failure
 RestartSec=5
 # Optional: Port / Rezept-Verzeichnis ueberschreiben
@@ -15,4 +13,4 @@ RestartSec=5
 # Environment=TABLETVIEWER_RECIPES_DIR=/home/pi/.openclaw/workspace/rezepte
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target

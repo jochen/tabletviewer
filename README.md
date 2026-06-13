@@ -85,19 +85,29 @@ Own service on a free port (proposed **8080**), NOT via the OpenClaw gateway (18
 | `POST /api/active` `{"recipe":"butter-chicken"}` | "jump to recipe X now" |
 | `WS /ws` | tablet subscribes, server pushes state changes |
 
-### Gaston's instruction
+### Agent instruction — as an OpenClaw skill
 
-A new `TOOLS_TABLETVIEWER.md` in the OpenClaw workspace (like `TOOLS_WLED.md`)
-tells Gaston the device, format and the `curl` commands, e.g.:
+The control is packaged as an **official OpenClaw skill**:
+`skills/tabletviewer/SKILL.md`. It teaches the agent the device and the `curl`
+commands, e.g.:
 
 ```bash
 curl -s -X POST http://localhost:8080/api/active -d '{"recipe":"butter-chicken"}'
 ```
 
-Gaston must know the constraints so it curates and displays sensibly: which
-recipes go on the selection list (3–6, from the meal plan), how to make a recipe
-active, and the **recipe format** (see below), which we can standardize on demand
-and give Gaston as a writing/filing rule.
+**Install (also for other OpenClaw instances):** copy the `skills/tabletviewer/`
+folder into `~/.openclaw/workspace/skills/` — the skill loads automatically (no
+allowlist entry needed). Verify with `openclaw skills list`; if needed
+`openclaw gateway restart` or `/new`.
+
+The agent must know the constraints so it curates sensibly: which recipes go on
+the selection list (3–6, from the meal plan), how to make a recipe active, and
+the **recipe format** (see below), which we can standardize on demand.
+
+> **Skill vs. plugin (OpenClaw terminology):** a *skill* is a workspace
+> instruction set (`SKILL.md`) that teaches the agent to use a tool — exactly our
+> case. A *plugin* would be a system extension that adds new tools/channels (not
+> needed here).
 
 ## Recipe format
 
@@ -135,8 +145,13 @@ Layout of each file:
   - `TABLETVIEWER_PORT` — port (default `8080`)
   - `TABLETVIEWER_RECIPES_DIR` — recipe directory (default
     `/home/pi/.openclaw/workspace/rezepte`)
-- **As a service:** copy `systemd/tabletviewer.service` to
-  `/etc/systemd/system/`, then `systemctl enable --now tabletviewer`.
+- **As a service (systemd --user):** copy `systemd/tabletviewer.service` to
+  `~/.config/systemd/user/`, then `systemctl --user enable --now tabletviewer`.
+  To keep it running without login / after reboot: `sudo loginctl enable-linger $USER`.
 - **Runtime state:** kept in `state.json` (gitignored).
-- **Gaston control:** see `docs/TOOLS_TABLETVIEWER.md` — `curl` against the
-  control API (`/api/list`, `/api/active`).
+- **Agent control:** OpenClaw skill `skills/tabletviewer/SKILL.md` (`curl` against
+  `/api/list`, `/api/active`) — see the "OpenClaw integration" section.
+- **Visual QA:** `tools/shot.py` (Python venv `.venv` + Playwright + system
+  Chromium) renders the running page headless to PNGs in `shots/`, to judge the
+  layout in portrait/landscape without the real tablet. One-time setup:
+  `apt install chromium fonts-noto-color-emoji` and `pip install playwright`.
