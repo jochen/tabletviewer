@@ -29,6 +29,12 @@ PORT = int(os.environ.get("TABLETVIEWER_PORT", "8080"))
 STATE_FILE = os.path.join(BASE_DIR, "state.json")
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 
+# Optionale Titelbilder: liegt unter RECIPES_DIR/images/<name>.<ext> ein Bild,
+# zeigt die Titelseite es an. Existiert noch nicht — der Slot ist vorbereitet,
+# damit der OpenClaw-Bot (Gaston) spaeter nur Bilder dort ablegen muss.
+IMAGES_DIR = os.path.join(RECIPES_DIR, "images")
+IMAGE_EXTS = (".jpg", ".jpeg", ".png", ".webp", ".gif")
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("tabletviewer")
 
@@ -95,10 +101,22 @@ def load_recipe(name):
         log.error("Konnte Rezept %s nicht lesen: %s", name, e)
         return None
     try:
-        return parse_recipe(name, text)
+        recipe = parse_recipe(name, text)
     except Exception as e:
         log.error("Parser-Fehler bei Rezept %s: %s", name, e)
         return None
+    recipe["image"] = _recipe_image_url(name)
+    return recipe
+
+
+def _recipe_image_url(name):
+    """Liefert die URL eines Titelbilds, falls eines unter
+    RECIPES_DIR/images/<name>.<ext> existiert, sonst None."""
+    safe = os.path.basename(name).replace("..", "")
+    for ext in IMAGE_EXTS:
+        if os.path.isfile(os.path.join(IMAGES_DIR, safe + ext)):
+            return "/recipe-images/" + safe + ext
+    return None
 
 
 def list_entry(name):
@@ -249,6 +267,9 @@ def create_app():
     app.router.add_post("/api/list", handle_post_list)
     app.router.add_post("/api/active", handle_post_active)
     app.router.add_get("/ws", handle_ws)
+    # Titelbilder ausliefern, falls das Verzeichnis existiert.
+    if os.path.isdir(IMAGES_DIR):
+        app.router.add_static("/recipe-images/", IMAGES_DIR, name="recipe_images")
     app.router.add_static("/static/", STATIC_DIR, name="static")
     # Sonstige statische Dateien (style.css, app.js) direkt unter / erlauben,
     # damit index.html sie ohne /static/-Praefix referenzieren kann.

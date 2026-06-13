@@ -120,6 +120,24 @@ html, body {
   z-index: 30;
 }
 
+/* Rezepttitel mittig in der Kopfleiste (ab Seite 2 sichtbar; nutzt den Raum
+   zwischen Zurueck-Button und Seitenzaehler). */
+.header-title {
+  position: absolute;
+  top: 12px;
+  left: 200px;
+  right: 250px;
+  height: 70px;
+  line-height: 70px;
+  font-size: 30px;
+  color: #555;
+  text-align: center;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  z-index: 20;
+}
+
 /* Bildschirmhohe Tap-Zonen links/rechts. card-content liegt darunter und
    bekommt seitlichen Platz, damit Text nicht unter den Zonen verschwindet. */
 .tap-zone {
@@ -140,54 +158,100 @@ html, body {
 
 .card-content {
   position: absolute;
-  top: 100px;
+  top: 95px;
   left: 190px;
   right: 190px;
-  bottom: 10px;
+  bottom: 15px;
   overflow: hidden;
+}
+
+/* --- Titelseite (Seite 1) --- */
+/* Fuellt die Karte und zentriert Icon/Bild, Titel und Metadaten. */
+.title-page {
+  height: 100%;
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  -webkit-box-pack: center;
+  -webkit-justify-content: center;
+  justify-content: center;
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+  align-items: center;
   text-align: center;
 }
 
-.card-heading {
-  font-size: 40px;
-  color: #333;
+.title-emoji {
+  font-size: 110px;
+  line-height: 1;
   margin-bottom: 20px;
 }
 
-.card-step-text {
-  font-size: 34px;
-  line-height: 1.5;
-  color: #222;
+.title-image {
+  max-height: 320px;
+  max-width: 100%;
+  border-radius: 16px;
+  margin-bottom: 20px;
 }
 
-.badges {
-  font-size: 22px;
-  color: #777;
-  margin-bottom: 14px;
+.title-name {
+  font-size: 46px;
+  color: #333;
+  line-height: 1.15;
+  margin-bottom: 18px;
 }
 
-.badge {
+.title-badges {
+  font-size: 24px;
+  color: #888;
+  line-height: 1.45;
+}
+
+.title-badge {
   display: inline-block;
-  margin: 0 6px;
+  margin: 0 10px;
+}
+
+/* --- Inhaltsseiten (Zutaten / Schritte) --- */
+.content-page {
+  height: 100%;
+}
+
+.section-heading {
+  font-size: 40px;
+  color: #333;
+  text-align: center;
+  margin-bottom: 18px;
 }
 
 .ingredient-group-heading {
-  font-size: 28px;
+  font-size: 30px;
   color: #555;
   margin: 14px 0 6px 0;
   font-weight: bold;
 }
 
-.ingredient-list {
-  list-style: none;
+.ingredient-item {
   font-size: 30px;
-  line-height: 1.5;
-  text-align: left;
-  display: inline-block;
+  line-height: 1.45;
+  color: #222;
+  padding: 4px 0;
 }
 
-.ingredient-list li {
-  padding: 2px 0;
+.step {
+  font-size: 32px;
+  line-height: 1.4;
+  color: #222;
+  margin-bottom: 20px;
+}
+
+.step-num {
+  font-weight: bold;
+  color: #a8662a;
+  margin-right: 6px;
 }
 
 /* --- Hochformat (Portrait) ---
@@ -209,5 +273,11 @@ html, body {
   .card-content {
     left: 100px;
     right: 100px;
+  }
+
+  /* Kopf-Titel im Hochformat ausblenden - zu wenig Breite zwischen
+     Zurueck-Button und Seitenzaehler; die Titelseite zeigt ihn ohnehin. */
+  .header-title {
+    display: none;
   }
 }
