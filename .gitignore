@@ -16,3 +16,7 @@ state.json
 
 # Lokale Claude-Code-Einstellungen
 .claude/settings.local.json
+
+# Python venv & Screenshots (lokal)
+.venv/
+shots/
