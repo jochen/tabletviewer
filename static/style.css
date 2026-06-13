@@ -8,8 +8,8 @@
 }
 
 html, body {
-  width: 1024px;
-  height: 600px;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
   font-family: sans-serif;
   background: #fdfaf5;
@@ -17,8 +17,8 @@ html, body {
 }
 
 .view {
-  width: 1024px;
-  height: 600px;
+  width: 100%;
+  height: 100%;
   position: relative;
 }
 
@@ -32,7 +32,7 @@ html, body {
 }
 
 #tiles {
-  width: 1024px;
+  width: 100%;
   padding: 10px 20px;
   display: -webkit-box;
   display: -webkit-flex;
@@ -188,4 +188,26 @@ html, body {
 
 .ingredient-list li {
   padding: 2px 0;
+}
+
+/* --- Hochformat (Portrait) ---
+   Querformat ist der Standard oben. Beim Drehen reflowt das Kachelraster
+   ohnehin (flex-wrap); hier nur das Tuning fuer die schmalere Breite:
+   kleinere Kacheln (2 pro Reihe) und schmalere Tap-Zonen/Karten-Raender,
+   damit der Text nicht zu eng wird. */
+@media (orientation: portrait) {
+  .tile {
+    width: 250px;
+    height: 190px;
+    margin: 10px;
+  }
+
+  .tap-zone {
+    width: 90px;
+  }
+
+  .card-content {
+    left: 100px;
+    right: 100px;
+  }
 }
