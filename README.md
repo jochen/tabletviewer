@@ -35,8 +35,13 @@ the OpenClaw workspace.
   Navigation via two large left/right tap zones (next/back), NO free scrolling
   (slips while cooking with greasy fingers). Plus a **back button** to the
   selection list; from page 2 on, the recipe title shows small in the header.
-- **Display wake / no auto-dimming:** this is **WallPanel configuration**, NOT
-  the web app's job. Turn screen timeout off / long while cooking.
+- **Display sleep / wake:** WallPanel runs with **"Prevent Sleep" on** — the
+  display is never actually turned off (otherwise the Fire keyguard with its
+  swipe-to-unlock appears, which Android 5.1 won't reliably dismiss). The
+  **dimming is done by the web app itself**: after inactivity a black overlay
+  fades in (saves burn-in/power), and the **first tap only wakes** — it does not
+  navigate. A Gaston push (jump to recipe X / new selection) wakes the screen
+  too. Timeout: `DIM_AFTER_MS` in `static/app.js`.
 
 ## Architecture
 

@@ -38,8 +38,13 @@ Markdown-Rezepte aus dem OpenClaw-Workspace an.
   Navigation über zwei große Tap-Zonen links/rechts (vor/zurück), KEIN freies
   Scrollen (verrutscht beim Kochen mit fettigen Fingern). Plus **Zurück-Button**
   zur Auswahlliste; ab Seite 2 läuft der Rezepttitel klein in der Kopfleiste mit.
-- **Display-Wecken / kein Auto-Dimmen:** ist **WallPanel-Konfiguration**, NICHT
-  Sache der Web-App. Beim Kochen Screen-Timeout aus / lang stellen.
+- **Display-Schlaf / Wecken:** WallPanel läuft mit **„Prevent Sleep" an** — das
+  Display wird nie wirklich abgeschaltet (sonst käme der Fire-Keyguard mit
+  Wischsperre, der sich auf Android 5.1 nicht zuverlässig wegdrücken lässt).
+  Das **Dimmen macht die Web-App selbst**: nach Inaktivität legt sich ein
+  schwarzes Overlay drüber (Burn-in-/Strom-schonend), der **erste Tap weckt nur**
+  und navigiert nicht. Ein Gaston-Push (Sprung zu Rezept X / neue Auswahl) weckt
+  den Schirm ebenfalls. Timeout: `DIM_AFTER_MS` in `static/app.js`.
 
 ## Architektur
 

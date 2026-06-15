@@ -13,6 +13,18 @@
   var pollTimer = null;
   var POLL_INTERVAL = 2000;
 
+  // Bildschirm-"Schlaf" rein in der Web-App: nach dieser Inaktivitaet legt
+  // sich ein schwarzes Overlay drueber. Android schaltet das Display NICHT
+  // ab (WallPanel "Prevent Sleep" bleibt an), darum kommt kein Fire-Keyguard
+  // mit Wischsperre. Der erste Tap weckt nur (siehe wakeScreen). Zum Anpassen
+  // hier den Wert aendern.
+  var DIM_AFTER_MS = 1800000; // 30 Minuten (lang genug, damit es beim Kochen nicht ausgeht)
+  var dimTimer = null;
+  var dimmed = false;
+  // Signatur des zuletzt angewendeten States, um echte (Gaston-)Aenderungen
+  // vom 2-Sekunden-Polling zu unterscheiden - nur echte Aenderungen wecken.
+  var lastSig = null;
+
   // --- Hilfsfunktionen ---
 
   function byId(id) {
@@ -56,6 +68,55 @@
       clearInterval(pollTimer);
       pollTimer = null;
     }
+  }
+
+  // --- Bildschirm-Dimmen (siehe DIM_AFTER_MS oben) ---
+
+  function dimScreen() {
+    dimmed = true;
+    byId("dim-overlay").className = "dim-on";
+  }
+
+  function resetDimTimer() {
+    if (dimTimer) {
+      clearTimeout(dimTimer);
+    }
+    dimTimer = setTimeout(dimScreen, DIM_AFTER_MS);
+  }
+
+  // Weckt den Bildschirm und startet die Inaktivitaets-Uhr neu. Gibt true
+  // zurueck, wenn dabei ein gedimmter Zustand aufgehoben wurde - dann soll der
+  // ausloesende Tap NUR wecken und nicht zusaetzlich navigieren/oeffnen.
+  function wakeScreen() {
+    var wasDimmed = dimmed;
+    if (dimmed) {
+      dimmed = false;
+      byId("dim-overlay").className = "";
+    }
+    resetDimTimer();
+    return wasDimmed;
+  }
+
+  // Erster Tap auf das gedimmte Overlay: nur wecken, Ereignis schlucken.
+  function onOverlayTap(e) {
+    wakeScreen();
+    if (e && e.preventDefault) {
+      e.preventDefault();
+    }
+    if (e && e.stopPropagation) {
+      e.stopPropagation();
+    }
+    return false;
+  }
+
+  // Jede Interaktion mit der App (Taps auf Zonen/Kacheln) haelt den Screen wach.
+  function onActivity() {
+    wakeScreen();
+  }
+
+  function stateSignature(data) {
+    var list = (data && data.list) || [];
+    return (data && data.active ? data.active : "") + "::" + list.join(",");
   }
 
   function connectWs() {
@@ -120,6 +181,14 @@
     } else {
       renderActive();
     }
+
+    // Echte Aenderung (z.B. Gaston springt zu Rezept X oder setzt die Auswahl)
+    // weckt den Bildschirm; identische Poll-Antworten tun das bewusst nicht.
+    var sig = stateSignature(data);
+    if (lastSig !== null && sig !== lastSig) {
+      wakeScreen();
+    }
+    lastSig = sig;
   }
 
   function escapeHtml(text) {
@@ -453,6 +522,26 @@
     if (window.addEventListener) {
       window.addEventListener("orientationchange", onResize, false);
     }
+
+    // Dim-Overlay: erster Tap weckt nur (schluckt das Ereignis).
+    var overlay = byId("dim-overlay");
+    overlay.onclick = onOverlayTap;
+    if (overlay.addEventListener) {
+      overlay.addEventListener("touchstart", onOverlayTap, false);
+    }
+
+    // Jede Interaktion mit der App haelt den Bildschirm wach. Im gedimmten
+    // Zustand faengt das Overlay den Tap ab (stopPropagation), darum erreichen
+    // diese Listener nur Taps bei wachem Schirm -> sie verschieben das Dimmen.
+    if (document.addEventListener) {
+      document.addEventListener("touchstart", onActivity, false);
+      document.addEventListener("mousedown", onActivity, false);
+    } else {
+      document.onmousedown = onActivity;
+    }
+
+    // Inaktivitaets-Uhr starten.
+    resetDimTimer();
 
     // Initialen State laden, dann WS verbinden (mit Polling-Fallback).
     xhrGetState();
