@@ -70,6 +70,176 @@
     }
   }
 
+  // --- Kuechentimer ---
+  // Der Sprachassistent haelt die Uhr und schickt Restzeiten (Vertrag:
+  // TIMER_INTERFACE.md im openclaw_voice_assist). Hier wird ab Empfang mit
+  // der eigenen monotonen Uhr weitergezaehlt - die Wanduhr des Tablets ist
+  // nicht verlaesslich. Klingeln geht NUR ueber WebAudio: <audio>.play() ist
+  // ohne Geste immer blockiert, WebAudio laeuft auch nach 36 min gedimmt
+  // (gemessen 2026-10-10, Branch test/tontest).
+
+  var timerStand = null;      // {seq, klingel_abstand_s, nachlauf_max_s, timer:[...]}
+  var timerEmpfangen = 0;     // jetztMs() beim Empfang
+  var timerRing = {};         // id -> {n: gespielte Folgen, handle: Intervall}
+  var audioCtx = null;
+
+  function jetztMs() {
+    if (window.performance && performance.now) {
+      return performance.now();
+    }
+    return new Date().getTime();
+  }
+
+  function getAudioCtx() {
+    var Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!audioCtx && Ctx) {
+      audioCtx = new Ctx();
+    }
+    return audioCtx;
+  }
+
+  // Eine Klingel-Folge: vier Rechteck-Pieper 2,5 kHz, volle Lautstaerke -
+  // im Tontest "deutlich lauter und fuer einen Wecker/Timer wirklich gut".
+  function klingelFolge() {
+    var ctx = getAudioCtx();
+    if (!ctx) {
+      return false;
+    }
+    if (ctx.state === "suspended" && ctx.resume) {
+      ctx.resume();
+    }
+    var t = ctx.currentTime + 0.05;
+    for (var i = 0; i < 4; i++) {
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.type = "square";
+      osc.frequency.value = 2500;
+      gain.gain.value = 1.0;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(t + i * 0.15);
+      osc.stop(t + i * 0.15 + 0.08);
+    }
+    return ctx.state === "running";
+  }
+
+  function timerRest(t) {
+    return t.rest_s - (jetztMs() - timerEmpfangen) / 1000;
+  }
+
+  function findeTimer(id) {
+    var liste = (timerStand && timerStand.timer) || [];
+    for (var i = 0; i < liste.length; i++) {
+      if (liste[i].id === id) {
+        return liste[i];
+      }
+    }
+    return null;
+  }
+
+  function stopRing(id) {
+    if (timerRing[id] && timerRing[id].handle) {
+      clearInterval(timerRing[id].handle);
+      timerRing[id].handle = null;
+    }
+  }
+
+  // Klingelt hoechstens t.klingeln Folgen im Abstand klingel_abstand_s und
+  // hoert auf, sobald der Timer still, verlaengert oder geloescht ist.
+  function startRing(t) {
+    var id = t.id;
+    timerRing[id] = { n: 0, handle: null };
+    var folge = function () {
+      var akt = findeTimer(id);
+      var r = timerRing[id];
+      if (!r || !akt || akt.still || timerRest(akt) > 0 || r.n >= akt.klingeln) {
+        stopRing(id);
+        return;
+      }
+      var laeuft = klingelFolge();
+      r.n += 1;
+      if (r.n === 1) {
+        // Nur bestaetigen, wenn WebAudio wirklich spielt - sonst klingelt
+        // der Assistent am eigenen Lautsprecher.
+        if (laeuft) {
+          xhrPost("/api/timer/klingelt", { id: id, audio: audioCtx ? audioCtx.state : null });
+        }
+        wakeScreen();
+      }
+    };
+    folge();
+    timerRing[id].handle = setInterval(folge, ((timerStand && timerStand.klingel_abstand_s) || 5) * 1000);
+  }
+
+  function applyTimer(stand) {
+    if (!stand) {
+      return;
+    }
+    var neu = !timerStand || timerStand.seq !== stand.seq;
+    timerStand = stand;
+    timerEmpfangen = jetztMs();
+    // Eine echte Aenderung (gestellt, verlaengert, geloescht) weckt: das
+    // Tablet zeigt so, ob Gaston richtig verstanden hat.
+    if (neu && stand.seq !== undefined) {
+      wakeScreen();
+    }
+    for (var id in timerRing) {
+      if (timerRing.hasOwnProperty(id)) {
+        var t = findeTimer(id);
+        if (!t || timerRest(t) > 0) {
+          stopRing(id);
+          delete timerRing[id];     // verlaengert: neuer Ablauf darf wieder klingeln
+        } else if (t.still) {
+          stopRing(id);
+        }
+      }
+    }
+    renderTimers();
+  }
+
+  function zeitText(sek) {
+    var s = Math.floor(Math.abs(sek));
+    var h = Math.floor(s / 3600);
+    var m = Math.floor((s % 3600) / 60);
+    var r = s % 60;
+    var mm = (h > 0 && m < 10 ? "0" : "") + m;
+    return (h > 0 ? h + ":" : "") + mm + ":" + (r < 10 ? "0" : "") + r;
+  }
+
+  function renderTimers() {
+    var box = byId("timers");
+    var liste = (timerStand && timerStand.timer) || [];
+    var html = "";
+    var nachlauf = (timerStand && timerStand.nachlauf_max_s) || 1800;
+    for (var i = 0; i < liste.length; i++) {
+      var t = liste[i];
+      var rest = timerRest(t);
+      if (rest < -nachlauf) {
+        continue;
+      }
+      var name = t.name ? escapeHtml(t.name) : "Timer";
+      var cls = "timer";
+      var zeit;
+      if (rest > 0) {
+        // Aufrunden: "0:01" bis zum Schluss, nie "0:00" vor dem Ablauf.
+        zeit = zeitText(Math.ceil(rest));
+      } else {
+        cls += " timer-ab";
+        if (timerRing[t.id] && timerRing[t.id].handle) {
+          cls += " timer-klingelt";
+        }
+        zeit = "&minus;" + zeitText(rest);
+      }
+      html += '<div class="' + cls + '"><span class="timer-name">' + name
+            + '</span><span class="timer-zeit">' + zeit + "</span></div>";
+      if (rest <= 0 && !t.still && !timerRing[t.id]) {
+        startRing(t);
+      }
+    }
+    box.innerHTML = html;
+    box.style.display = html ? "block" : "none";
+  }
+
   // --- Bildschirm-Dimmen (siehe DIM_AFTER_MS oben) ---
 
   function dimScreen() {
@@ -137,6 +307,14 @@
     ws.onmessage = function (evt) {
       try {
         var data = JSON.parse(evt.data);
+        if (data && data.type === "timer") {
+          applyTimer(data.timer);
+          return;
+        }
+        if (data && data.type === "reload") {
+          window.location.reload(true);
+          return;
+        }
         applyState(data);
       } catch (e) {
         // ignorieren
@@ -172,6 +350,9 @@
     // Broadcast/Poll behalten wir die lokal navigierte Seite bei, ausser
     // der Server hat ein ANDERES Rezept aktiviert (dann ist 0 korrekt).
     var localCard = (state && state.active === data.active) ? state.card : data.card;
+    if (data.timer !== undefined) {
+      applyTimer(data.timer);
+    }
     state = data;
     if (localCard !== undefined && localCard !== null) {
       state.card = localCard;
@@ -542,6 +723,9 @@
 
     // Inaktivitaets-Uhr starten.
     resetDimTimer();
+
+    // Timer-Anzeige jede Viertelsekunde neu (nur Text, billig).
+    setInterval(renderTimers, 250);
 
     // Initialen State laden, dann WS verbinden (mit Polling-Fallback).
     xhrGetState();

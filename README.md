@@ -89,6 +89,30 @@ Own service on a free port (proposed **8080**), NOT via the OpenClaw gateway (18
 | `POST /api/list` `{"recipes":["butter-chicken",…]}` | set curated tiles |
 | `POST /api/active` `{"recipe":"butter-chicken"}` | "jump to recipe X now" |
 | `WS /ws` | tablet subscribes, server pushes state changes |
+| `POST /api/timer` | kitchen-timer sink (see below), for the voice assistant only |
+| `POST /api/timer/klingelt` `{"id":…}` | the tablet reports: ringing has started |
+| `POST /api/reload` | all connected tablets reload the page (after an update) |
+
+### Kitchen timer
+
+The voice assistant ([openclaw-voice-assistant](https://github.com/jochen/openclaw-voice-assistant),
+contract `TIMER_INTERFACE.md`) owns the timers and sends their whole state to
+`POST /api/timer`. The viewer shows them bottom right, **above everything**,
+including the dim overlay. Running timers are dark; expired ones are red with
+a minus sign ("Nudel −2:30"); a ringing one blinks. The tablet counts the
+remaining time on its own monotonic clock from the moment of receipt, so its
+wall clock is never used.
+
+Ringing uses **WebAudio only**: on the Fire 7 the WebView always blocks
+`<audio>.play()` without a user gesture, while WebAudio plays even after
+36 minutes with the screen dimmed (measured 2026-10-10). One ring is four
+2.5 kHz square-wave beeps; a 440 Hz sine was too quiet. Once ringing has
+started, the tablet reports back. Only then does `/api/timer` answer the
+assistant with `"klingelt": [id]`, waiting at most 3 s for it. Without that
+report the assistant rings on its own speaker.
+
+Optional `TABLETVIEWER_TIMER_TOKEN`: if set, the assistant must send
+`Authorization: Bearer <token>`.
 
 ### Agent instruction — as an OpenClaw skill
 

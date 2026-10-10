@@ -304,3 +304,61 @@ html, body {
   opacity: 1;
   pointer-events: auto;
 }
+
+/* --- Kuechentimer ---
+   Unten rechts, ueber allem (auch ueber dem Dim-Overlay), Taps gehen durch.
+   Laufend: dunkel. Abgelaufen: rot, Zeit mit Minus ("Nudel -2:30") - auf
+   einen Blick vom Herunterzaehlen zu unterscheiden. Klingelnd: blinkt. */
+
+#timers {
+  position: fixed;
+  right: 12px;
+  bottom: 12px;
+  z-index: 10000;
+  pointer-events: none;
+}
+
+.timer {
+  margin-top: 8px;
+  padding: 6px 18px;
+  min-width: 260px;
+  background: #2b2b2b;
+  color: #fff;
+  border-radius: 14px;
+  font-size: 44px;
+  line-height: 1.2;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.timer-name {
+  font-size: 30px;
+  margin-right: 16px;
+  color: #ddd;
+}
+
+.timer-zeit {
+  font-weight: bold;
+  font-family: monospace;
+}
+
+.timer-ab {
+  background: #c62828;
+}
+
+.timer-ab .timer-name {
+  color: #fff;
+}
+
+.timer-klingelt {
+  -webkit-animation: timer-blink 0.5s steps(1) infinite;
+  animation: timer-blink 0.5s steps(1) infinite;
+}
+
+@-webkit-keyframes timer-blink {
+  50% { background: #ffeb3b; color: #000; }
+}
+
+@keyframes timer-blink {
+  50% { background: #ffeb3b; color: #000; }
+}

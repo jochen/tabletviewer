@@ -9,6 +9,9 @@ Siehe README.de.md fuer das Gesamtkonzept. Kurzfassung:
   und als simple JSON-Struktur an die UI gegeben.
 - WebSocket /ws pusht Zustandsaenderungen an alle verbundenen Clients;
   Polling von /api/state ist der Fallback fuer alte WebViews.
+- POST /api/timer ist eine Kuechentimer-Senke nach dem Vertrag
+  TIMER_INTERFACE.md des Sprachassistenten (openclaw_voice_assist): der
+  Assistent haelt die Uhr, hier wird nur angezeigt und geklingelt.
 """
 
 import asyncio
@@ -16,6 +19,7 @@ import json
 import logging
 import os
 import re
+import time
 
 from aiohttp import web, WSMsgType
 
@@ -28,6 +32,11 @@ RECIPES_DIR = os.environ.get("TABLETVIEWER_RECIPES_DIR", "/home/pi/.openclaw/wor
 PORT = int(os.environ.get("TABLETVIEWER_PORT", "8080"))
 STATE_FILE = os.path.join(BASE_DIR, "state.json")
 STATIC_DIR = os.path.join(BASE_DIR, "static")
+# Optional: wenn gesetzt, muss der Assistent "Authorization: Bearer <token>" senden.
+TIMER_TOKEN = os.environ.get("TABLETVIEWER_TIMER_TOKEN", "")
+# So lange wartet POST /api/timer bei einem frisch abgelaufenen Timer darauf,
+# dass ein Tablet "klingelt" meldet (Vertrag: hoechstens ~3 s).
+TIMER_ACK_WAIT_SEC = 3.0
 
 # Optionale Titelbilder: liegt unter RECIPES_DIR/images/<name>.<ext> ein Bild,
 # zeigt die Titelseite es an. Existiert noch nicht — der Slot ist vorbereitet,
@@ -134,6 +143,35 @@ def list_entry(name):
 STATE = load_state()
 WS_CLIENTS = set()
 
+# Kuechentimer: letzter Stand vom Assistenten + monotone Empfangszeit. Nicht
+# persistiert - der Assistent schickt spaetestens alle 30 s den ganzen Stand.
+TIMER = {"stand": None, "empfangen": 0.0}
+# id -> True, sobald ein Tablet das Klingeln fuer diesen Ablauf bestaetigt hat
+TIMER_KLINGELT = {}
+TIMER_ACK_EVENT = asyncio.Event()
+
+
+def timer_payload():
+    """Stand fuer die Clients, Restzeiten auf JETZT umgerechnet (die Tablet-
+    Uhr wird nie gebraucht, der Client rechnet ab Empfang weiter)."""
+    stand = TIMER["stand"]
+    if not stand:
+        return None
+    vergangen = time.monotonic() - TIMER["empfangen"]
+    timer = []
+    for t in stand.get("timer", []):
+        t = dict(t)
+        t["rest_s"] = round(float(t.get("rest_s", 0)) - vergangen, 1)
+        if t["rest_s"] < -float(stand.get("nachlauf_max_s", 1800)):
+            continue
+        timer.append(t)
+    return {
+        "seq": stand.get("seq"),
+        "klingel_abstand_s": stand.get("klingel_abstand_s", 5),
+        "nachlauf_max_s": stand.get("nachlauf_max_s", 1800),
+        "timer": timer,
+    }
+
 
 def build_state_payload():
     """Baut die JSON-Antwort fuer GET /api/state und WS-Broadcasts."""
@@ -142,6 +180,7 @@ def build_state_payload():
         "active": STATE["active"],
         "card": STATE["card"],
         "recipe": None,
+        "timer": timer_payload(),
     }
     if STATE["active"] is not None:
         payload["recipe"] = load_recipe(STATE["active"])
@@ -238,6 +277,27 @@ async def handle_post_active(request):
     return web.json_response(build_state_payload())
 
 
+async def broadcast_message(obj):
+    """Sendet eine Nachricht ausser dem Rezept-State an alle WS-Clients."""
+    text = json.dumps(obj, ensure_ascii=False)
+    sent = 0
+    for ws in list(WS_CLIENTS):
+        try:
+            await ws.send_str(text)
+            sent += 1
+        except ConnectionResetError:
+            WS_CLIENTS.discard(ws)
+    return sent
+
+
+async def handle_post_reload(request):
+    """Laesst alle verbundenen Tablets die Seite neu laden (nach einem
+    Update - WallPanel laedt sonst nie selbst neu)."""
+    sent = await broadcast_message({"type": "reload"})
+    log.info("Reload an %d WS-Client(s) gesendet", sent)
+    return web.json_response({"sent_to": sent})
+
+
 async def handle_ws(request):
     ws = web.WebSocketResponse(heartbeat=30)
     await ws.prepare(request)
@@ -260,6 +320,79 @@ async def handle_ws(request):
     return ws
 
 
+def _faellige_ids(stand):
+    """Abgelaufen, nicht still und noch nicht bestaetigt."""
+    return [t["id"] for t in stand.get("timer", [])
+            if float(t.get("rest_s", 1)) <= 0 and not t.get("still")
+            and t.get("id") not in TIMER_KLINGELT]
+
+
+async def handle_post_timer(request):
+    """Senke nach TIMER_INTERFACE.md: ganzer Stand rein, an die Tablets
+    weiter, Antwort {"anzeigen": n, "klingelt": [ids]}. Ist ein Timer gerade
+    abgelaufen, wird bis TIMER_ACK_WAIT_SEC auf die Bestaetigung eines Tablets
+    gewartet - sonst klingelt der Assistent selbst."""
+    if TIMER_TOKEN and request.headers.get("Authorization") != "Bearer " + TIMER_TOKEN:
+        return web.json_response({"error": "unauthorized"}, status=401)
+    try:
+        stand = await request.json()
+    except (json.JSONDecodeError, ValueError):
+        return web.json_response({"error": "invalid JSON"}, status=400)
+    if not isinstance(stand, dict) or stand.get("art") != "kuechentimer":
+        return web.json_response({"error": "art must be 'kuechentimer'"}, status=400)
+
+    alt = TIMER["stand"]
+    TIMER["stand"] = stand
+    TIMER["empfangen"] = time.monotonic()
+    # Bestaetigungen vergessen fuer Timer, die weg oder wieder laufend sind
+    # (verlaengert = neuer Ablauf, darf wieder klingeln).
+    abgelaufen = {t["id"] for t in stand.get("timer", []) if float(t.get("rest_s", 1)) <= 0}
+    for tid in list(TIMER_KLINGELT):
+        if tid not in abgelaufen:
+            del TIMER_KLINGELT[tid]
+
+    if not alt or alt.get("seq") != stand.get("seq"):
+        log.info("Timer-Stand seq=%s: %s", stand.get("seq"), ", ".join(
+            "%s %+.0fs%s" % (t.get("name") or "-", float(t.get("rest_s", 0)),
+                             " still" if t.get("still") else "")
+            for t in stand.get("timer", [])) or "(leer)")
+    await broadcast_message({"type": "timer", "timer": timer_payload()})
+
+    faellig = _faellige_ids(stand)
+    if faellig and WS_CLIENTS:
+        frist = time.monotonic() + TIMER_ACK_WAIT_SEC
+        while any(tid not in TIMER_KLINGELT for tid in faellig):
+            rest = frist - time.monotonic()
+            if rest <= 0:
+                break
+            TIMER_ACK_EVENT.clear()
+            try:
+                await asyncio.wait_for(TIMER_ACK_EVENT.wait(), rest)
+            except asyncio.TimeoutError:
+                break
+        log.info("Timer abgelaufen %s, Tablet klingelt: %s",
+                 faellig, [tid for tid in faellig if tid in TIMER_KLINGELT])
+    return web.json_response({
+        "anzeigen": len(WS_CLIENTS),
+        "klingelt": [tid for tid in TIMER_KLINGELT],
+    })
+
+
+async def handle_post_timer_klingelt(request):
+    """Vom Tablet: das Klingeln fuer diese id hat begonnen (WebAudio lief)."""
+    try:
+        data = await request.json()
+    except (json.JSONDecodeError, ValueError):
+        return web.json_response({"error": "invalid JSON"}, status=400)
+    tid = str(data.get("id", ""))
+    if tid:
+        TIMER_KLINGELT[tid] = True
+        TIMER_ACK_EVENT.set()
+        log.info("Tablet %s klingelt fuer Timer %s (%s)", request.remote, tid,
+                 data.get("audio"))
+    return web.json_response({"ok": True})
+
+
 def create_app():
     app = web.Application()
     app.router.add_get("/", handle_index)
@@ -267,6 +400,9 @@ def create_app():
     app.router.add_post("/api/list", handle_post_list)
     app.router.add_post("/api/active", handle_post_active)
     app.router.add_get("/ws", handle_ws)
+    app.router.add_post("/api/timer", handle_post_timer)
+    app.router.add_post("/api/timer/klingelt", handle_post_timer_klingelt)
+    app.router.add_post("/api/reload", handle_post_reload)
     # Titelbilder ausliefern. Verzeichnis sicherstellen, damit die Route IMMER
     # existiert - auch wenn images/ erst nach dem Serverstart befuellt wird
     # (Gaston legt Bilder spaeter ab). add_static braucht ein existierendes Dir.
