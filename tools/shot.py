@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Screenshot-Helfer fuer den tabletviewer.
 
-Rendert die laufende Viewer-Seite headless (System-Chromium via Playwright)
+Rendert die laufende Viewer-Seite headless (Playwright mit eigenem Chromium)
 und legt ein PNG ab — damit man das Layout ohne das echte Tablet beurteilen
 kann. Naehert das Aussehen an; die echte Android-5.1-WebView rendert Fonts/
 Emojis minimal anders, fuer Layout/Verteilung ist es aber repraesentativ.
@@ -12,7 +12,8 @@ Beispiele:
   tools/shot.py --list --orient land
 
 Voraussetzung: der Server laeuft (Default http://localhost:8080).
-Aufruf mit dem venv-Python: .venv/bin/python tools/shot.py ...
+Laeuft im Playwright-Container (kein Host-Chromium/venv mehr noetig):
+  tools/shot-container.sh --recipe panna-cotta-mit-erdbeersoße --card 0 --orient land
 """
 
 import argparse
@@ -63,8 +64,9 @@ def main():
     os.makedirs(os.path.dirname(out), exist_ok=True)
 
     with sync_playwright() as p:
-        b = p.chromium.launch(executable_path="/usr/bin/chromium",
-                              args=["--no-sandbox", "--disable-gpu"])
+        # Playwright-eigenes gebuendeltes Chromium (Container-Image bringt es mit,
+        # kein System-Chromium mehr noetig - siehe shot-container.sh).
+        b = p.chromium.launch(args=["--no-sandbox", "--disable-gpu"])
         page = b.new_page(viewport={"width": w, "height": h}, device_scale_factor=1)
         page.goto(args.url, wait_until="networkidle")
         time.sleep(0.4)
