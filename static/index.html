@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
 <title>Rezepte</title>
-<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/style.css?v=timer1">
 </head>
 <body>
 
@@ -29,6 +29,10 @@
      Wischsperre). Erster Tap weckt nur und navigiert nicht. -->
 <div id="dim-overlay"></div>
 
-<script src="/app.js"></script>
+<!-- Kuechentimer: ueber dem Dim-Overlay, damit ein laufender Timer auch bei
+     "Screen aus" lesbar bleibt. Taps gehen durch (pointer-events: none). -->
+<div id="timers" style="display:none;"></div>
+
+<script src="/app.js?v=timer2"></script>
 </body>
 </html>

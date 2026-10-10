@@ -93,6 +93,30 @@ Gateway (18789).
 | `POST /api/list` `{"recipes":["butter-chicken",…]}` | kuratierte Kacheln setzen |
 | `POST /api/active` `{"recipe":"butter-chicken"}` | „spring jetzt auf Rezept X" |
 | `WS /ws` | Tab abonniert, Server pusht Zustandsänderungen |
+| `POST /api/timer` | Küchentimer-Senke (siehe unten), nur für den Sprachassistenten |
+| `POST /api/timer/klingelt` `{"id":…}` | das Tablet meldet: Klingeln hat begonnen |
+| `POST /api/reload` | alle verbundenen Tablets laden die Seite neu (nach einem Update) |
+
+### Küchentimer
+
+Der Sprachassistent ([openclaw-voice-assistant](https://github.com/jochen/openclaw-voice-assistant),
+Vertrag `TIMER_INTERFACE.md`) hält die Timer und schickt ihren ganzen Zustand
+an `POST /api/timer`. Der Viewer zeigt sie unten rechts **über allem**, auch
+über dem Dimm-Overlay. Laufende Timer sind dunkel, abgelaufene rot mit Minus
+(„Nudel −2:30“), und ein klingelnder blinkt. Die Restzeit zählt das Tablet
+mit der eigenen monotonen Uhr ab Empfang weiter, seine Wanduhr wird nicht
+gebraucht.
+
+Klingeln geht **nur über WebAudio**: Auf dem Fire 7 blockiert die WebView
+`<audio>.play()` ohne Benutzergeste immer, WebAudio dagegen spielt auch nach
+36 Minuten mit gedimmtem Bildschirm (gemessen 2026-10-10). Eine Folge besteht
+aus vier Rechteck-Piepern mit 2,5 kHz; ein Sinus mit 440 Hz war zu leise. Hat
+das Klingeln begonnen, meldet das Tablet es zurück. Erst dann antwortet
+`/api/timer` dem Assistenten mit `"klingelt": [id]` und wartet dafür höchstens
+3 s. Ohne diese Meldung klingelt der Assistent am eigenen Lautsprecher.
+
+Optional `TABLETVIEWER_TIMER_TOKEN`: Dann muss der Assistent
+`Authorization: Bearer <token>` senden.
 
 ### Gastons Anweisung — als OpenClaw-Skill
 
