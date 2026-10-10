@@ -214,7 +214,8 @@
     for (var i = 0; i < liste.length; i++) {
       var t = liste[i];
       var rest = timerRest(t);
-      if (rest < -nachlauf) {
+      // nachlauf_s je Timer (doppelte Laufzeit, 5..30 min), sonst global
+      if (rest < -(t.nachlauf_s || nachlauf)) {
         continue;
       }
       var name = t.name ? escapeHtml(t.name) : "Timer";

@@ -162,7 +162,8 @@ def timer_payload():
     for t in stand.get("timer", []):
         t = dict(t)
         t["rest_s"] = round(float(t.get("rest_s", 0)) - vergangen, 1)
-        if t["rest_s"] < -float(stand.get("nachlauf_max_s", 1800)):
+        # nachlauf_s je Timer (seit 2026-10-10), sonst der globale Wert
+        if t["rest_s"] < -float(t.get("nachlauf_s") or stand.get("nachlauf_max_s", 1800)):
             continue
         timer.append(t)
     return {
