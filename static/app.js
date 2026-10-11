@@ -13,6 +13,15 @@
   var pollTimer = null;
   var POLL_INTERVAL = 2000;
 
+  // Heartbeat: alle 20 s ein "ping", der Server antwortet mit "pong".
+  // Kommt 50 s lang GAR NICHTS (kein pong, kein State), gilt die Verbindung
+  // als tot. Noetig, weil eine halb offene Verbindung (Server-IP weg, WLAN-
+  // Aussetzer) nie onclose ausloest - dann liefe weder Polling noch Reconnect.
+  var HEARTBEAT_INTERVAL = 20000;
+  var HEARTBEAT_TIMEOUT = 50000;
+  var heartbeatTimer = null;
+  var lastWsRx = 0;
+
   // Bildschirm-"Schlaf" rein in der Web-App: nach dieser Inaktivitaet legt
   // sich ein schwarzes Overlay drueber. Android schaltet das Display NICHT
   // ab (WallPanel "Prevent Sleep" bleibt an), darum kommt kein Fire-Keyguard
@@ -294,20 +303,29 @@
     var proto = (window.location.protocol === "https:") ? "wss:" : "ws:";
     var url = proto + "//" + window.location.host + "/ws";
 
+    var sock;
     try {
-      ws = new WebSocket(url);
+      sock = new WebSocket(url);
     } catch (e) {
       startPolling();
+      setTimeout(connectWs, 5000);
       return;
     }
+    ws = sock;
 
-    ws.onopen = function () {
+    sock.onopen = function () {
       stopPolling();
+      lastWsRx = new Date().getTime();
+      startHeartbeat(sock);
     };
 
-    ws.onmessage = function (evt) {
+    sock.onmessage = function (evt) {
+      lastWsRx = new Date().getTime();
       try {
         var data = JSON.parse(evt.data);
+        if (data && data.type === "pong") {
+          return;
+        }
         if (data && data.type === "timer") {
           applyTimer(data.timer);
           return;
@@ -322,18 +340,57 @@
       }
     };
 
-    ws.onclose = function () {
-      ws = null;
-      startPolling();
-      // Reconnect-Versuch nach kurzer Pause.
-      setTimeout(connectWs, 5000);
+    sock.onclose = function () {
+      dropWs(sock);
     };
 
-    ws.onerror = function () {
+    sock.onerror = function () {
       // onclose wird i.d.R. ebenfalls ausgeloest; Polling als Fallback
       // sicherheitshalber direkt starten.
       startPolling();
     };
+  }
+
+  // Verbindung aufgeben: Handler abklemmen (ein spaetes onclose der alten
+  // Verbindung darf keinen zweiten Reconnect anstossen), Polling an,
+  // Reconnect nach kurzer Pause. Doppelte Aufrufe fuer dieselbe Verbindung
+  // sind harmlos.
+  function dropWs(sock) {
+    if (ws !== sock) {
+      return;
+    }
+    ws = null;
+    stopHeartbeat();
+    sock.onopen = sock.onmessage = sock.onclose = sock.onerror = null;
+    try {
+      sock.close();
+    } catch (e) {
+      // ignorieren
+    }
+    startPolling();
+    setTimeout(connectWs, 5000);
+  }
+
+  function startHeartbeat(sock) {
+    stopHeartbeat();
+    heartbeatTimer = setInterval(function () {
+      if (new Date().getTime() - lastWsRx > HEARTBEAT_TIMEOUT) {
+        dropWs(sock);
+        return;
+      }
+      try {
+        sock.send("ping");
+      } catch (e) {
+        dropWs(sock);
+      }
+    }, HEARTBEAT_INTERVAL);
+  }
+
+  function stopHeartbeat() {
+    if (heartbeatTimer) {
+      clearInterval(heartbeatTimer);
+      heartbeatTimer = null;
+    }
   }
 
   // --- Rendering ---
