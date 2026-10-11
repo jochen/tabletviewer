@@ -312,8 +312,13 @@ async def handle_ws(request):
         async for msg in ws:
             if msg.type == WSMsgType.ERROR:
                 break
-            # Der Viewer schreibt nur ueber HTTP (/api/list, /api/active);
-            # eingehende WS-Nachrichten werden nicht ausgewertet.
+            # Der Viewer schreibt nur ueber HTTP (/api/list, /api/active).
+            # Einzige WS-Nachricht vom Client: der Heartbeat "ping". Die
+            # Protokoll-Pings (heartbeat=30) sieht JavaScript nicht; ohne
+            # Antwort erkennt die Seite eine halb offene Verbindung nie
+            # (z. B. nach IP-Wechsel des Servers).
+            if msg.type == WSMsgType.TEXT and msg.data == "ping":
+                await ws.send_str('{"type":"pong"}')
     finally:
         WS_CLIENTS.discard(ws)
         log.info("WS-Client getrennt (%d verbleibend)", len(WS_CLIENTS))
