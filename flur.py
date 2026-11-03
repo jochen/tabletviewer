@@ -96,6 +96,11 @@ def _speichern():
 FLUR = _laden()
 FLUR_WS = set()
 _hide_handle = None
+# Letzter Poll einer Flur-SEITE (GET /api/flur/state?von=seite). Faellt die
+# WebSocket-Verbindung auf dem Tablet aus, pollt die Seite - dann zaehlt sie
+# trotzdem als aktiv. Node-RED fragt ohne ?von=seite und zaehlt nicht mit.
+_letzter_seiten_poll = 0.0
+SEITE_POLL_FRISCH_S = 15
 
 
 # --- Termine aufbereiten ---
@@ -257,9 +262,17 @@ def payload():
     rest = None
     if ov["view"] and ov["bis"]:
         rest = max(0, round(ov["bis"] - time.time()))
+    poll_vor = (round(time.monotonic() - _letzter_seiten_poll)
+                if _letzter_seiten_poll else None)
     return {
         "type": "flur",
         "jetzt_ms": int(time.time() * 1000),
+        # Fuer den Gesundheitscheck (Node-RED): zeigt das Tablet /flur gerade?
+        "seiten": {
+            "ws": len(FLUR_WS),
+            "poll_vor_s": poll_vor,
+            "aktiv": len(FLUR_WS) > 0 or (poll_vor is not None and poll_vor <= SEITE_POLL_FRISCH_S),
+        },
         "ha_url": HA_URL,
         "overlay": {
             "view": ov["view"],
@@ -338,6 +351,9 @@ async def handle_page(request):
 
 
 async def handle_state(request):
+    global _letzter_seiten_poll
+    if request.query.get("von") == "seite":
+        _letzter_seiten_poll = time.monotonic()
     return web.json_response(payload())
 
 
