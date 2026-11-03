@@ -213,7 +213,8 @@ open.
 
 Event format (from the fetch script): `id`, `titel`, `ort`, `beschreibung`,
 `start`/`ende` (ISO with time, or `YYYY-MM-DD` for all-day, end exclusive),
-optional `hinweis`, `wichtig`.
+optional `hinweis`, `wichtig`, `vorab` (`[{ab, text}]`: shown under the focus day from that date on).
+These come from the **Gaston block** at the end of the event description (`— Gaston —`, `📌 …`, `📌 ab YYYY-MM-DD: …`, `❗`), which Gaston maintains with the `familienkalender` skill. The fetch script parses it and strips it from the description.
 
 Layout: the focus day large at the top ("Heute" = today, or "Morgen" =
 tomorrow in the evening; past events faded, running ones green), below it the

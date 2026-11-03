@@ -20,6 +20,7 @@ import argparse
 import datetime as dt
 import json
 import os
+import re
 import sys
 import urllib.request
 from zoneinfo import ZoneInfo
@@ -41,6 +42,45 @@ def iso(v):
 def text(comp, key):
     v = comp.get(key)
     return str(v).strip() if v is not None else ""
+
+
+# Gaston-Block am Ende der Beschreibung (Format: skills/familienkalender im
+# OpenClaw-Workspace). Alles ab der Zeile "— Gaston —" gehoert Gaston:
+#   📌 <Hinweis>                    -> Hinweis unter dem Termin
+#   📌 ab JJJJ-MM-TT: <Hinweis>     -> ab dem Datum schon vorher unter "Heute"
+#   ❗ ...                          -> wichtig
+_BLOCK_RE = re.compile(r"(?:^|\n|<br\s*/?>|<p>|<div>)\s*(?:—|--|-)\s*Gaston\s*(?:—|--|-)\s*(?=$|\n|<br|</p>|</div>)",
+                       re.I)
+_AB_RE = re.compile(r"^ab\s+(\d{4}-\d{2}-\d{2})\s*:\s*(.+)$")
+
+
+def _klartext(t):
+    t = re.sub(r"<br\s*/?>", "\n", t, flags=re.I)
+    t = re.sub(r"</(p|div|li)>", "\n", t, flags=re.I)
+    t = re.sub(r"<[^>]+>", "", t)
+    return t.replace("&nbsp;", " ").replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+
+
+def gaston_block(beschreibung):
+    """-> (beschreibung_ohne_block, hinweise[], vorab[], wichtig)"""
+    if not beschreibung:
+        return "", [], [], False
+    m = _BLOCK_RE.search(beschreibung)
+    if not m:
+        return _klartext(beschreibung).strip(), [], [], False
+    hinweise, vorab, wichtig = [], [], False
+    for z in _klartext(beschreibung[m.start():]).split("\n"):
+        z = z.strip()
+        if z.startswith("❗"):
+            wichtig = True
+        elif z.startswith("📌"):
+            inhalt = z[len("📌"):].strip()
+            mab = _AB_RE.match(inhalt)
+            if mab:
+                vorab.append({"ab": mab.group(1), "text": mab.group(2).strip()})
+            elif inhalt:
+                hinweise.append(inhalt)
+    return _klartext(beschreibung[:m.start()]).strip(), hinweise, vorab, wichtig
 
 
 def lade_ics(url):
@@ -66,12 +106,16 @@ def termine(ics_bytes, tage):
             ende = start + ev.get("DURATION").dt
         else:
             ende = start
+        beschreibung, hinweise, vorab, wichtig = gaston_block(text(ev, "DESCRIPTION"))
         out.append({
             # uid + Beginn: eindeutig auch fuer einzelne Serien-Vorkommen
             "id": "%s@%s" % (text(ev, "UID"), iso(start)),
             "titel": text(ev, "SUMMARY") or "(ohne Titel)",
             "ort": text(ev, "LOCATION") or None,
-            "beschreibung": text(ev, "DESCRIPTION")[:1000] or None,
+            "beschreibung": beschreibung[:1000] or None,
+            "hinweis": " · ".join(hinweise) or None,
+            "vorab": vorab,
+            "wichtig": wichtig,
             "start": iso(start),
             "ende": iso(ende),
         })
