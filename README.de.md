@@ -212,7 +212,7 @@ Anbindung ist noch offen.
 | `GET /api/flur/state` | Zustand inkl. fertig aufbereitetem Kalender; Polling-Fallback. `seiten: {ws, poll_vor_s, aktiv}` sagt, ob das Tablet `/flur` gerade zeigt (Gesundheitscheck für Node-RED; die Seite selbst pollt mit `?von=seite`) |
 | `WS /ws/flur` | Push an die Flur-Seite |
 | `POST /api/flur/events` | Termine vom Abrufskript `{"events":[…], "stand":ISO, "quelle":…}` |
-| `POST /api/flur/show` | `{"view":"kalender", "fokus":"heute"\|"morgen", "seconds":900, "skip_if_seen_within_s":0}` → `{"shown":bool,…}`; `seconds:0` = bis Tap |
+| `POST /api/flur/show` | `{"view":"kalender", "fokus":"heute"\|"morgen"\|"auto", "seconds":900, "skip_if_seen_within_s":0}` → `{"shown":bool,…}`; `seconds:0` = bis Tap; `fokus:"auto"` = ab 18 Uhr „morgen" (`TABLETVIEWER_FLUR_MORGEN_AB`), so arbeitet auch der Knopf „Termine" |
 | `POST /api/flur/hide` | Overlay aus; `{"grund":"tap"}` kommt vom Tablet und setzt `gesehen_um` |
 | `POST /api/flur/reload` | `{"ziel":"seite"\|"ha"}` lädt die Seite bzw. nur das HA-iframe neu |
 

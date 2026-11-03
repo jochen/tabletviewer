@@ -207,7 +207,7 @@ open.
 | `GET /api/flur/state` | state including the ready-made calendar; polling fallback. `seiten: {ws, poll_vor_s, aktiv}` tells whether the tablet is showing `/flur` right now (health check for Node-RED; the page itself polls with `?von=seite`) |
 | `WS /ws/flur` | push to the hallway page |
 | `POST /api/flur/events` | events from the fetch script `{"events":[…], "stand":ISO, "quelle":…}` |
-| `POST /api/flur/show` | `{"view":"kalender", "fokus":"heute"\|"morgen", "seconds":900, "skip_if_seen_within_s":0}` → `{"shown":bool,…}`; `seconds:0` = until tapped |
+| `POST /api/flur/show` | `{"view":"kalender", "fokus":"heute"\|"morgen"\|"auto", "seconds":900, "skip_if_seen_within_s":0}` → `{"shown":bool,…}`; `seconds:0` = until tapped; `fokus:"auto"` = "morgen" from 18:00 (`TABLETVIEWER_FLUR_MORGEN_AB`), also used by the "Termine" button |
 | `POST /api/flur/hide` | overlay off; `{"grund":"tap"}` comes from the tablet and sets `gesehen_um` |
 | `POST /api/flur/reload` | `{"ziel":"seite"\|"ha"}` reloads the page or just the HA iframe |
 
