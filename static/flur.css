@@ -1,0 +1,269 @@
+/* Flur-Tablet: Fire HD 10 (5. Gen), 1280x800 quer, alte WebView.
+   Bewusst schlicht: keine CSS-Variablen, kein Grid, Flex nur mit Praefix. */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  font-family: sans-serif;
+}
+
+#ha {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #fff;
+}
+
+/* --- Overlay --- */
+
+#kal {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+  background: #111a2c;
+  color: #f2f2f2;
+  padding: 18px 28px 0 28px;
+}
+
+#kal-kopf {
+  height: 76px;
+  white-space: nowrap;
+  overflow: hidden;
+  border-bottom: 2px solid #34405a;
+}
+
+#fokus-titel {
+  font-size: 54px;
+  font-weight: bold;
+  color: #ffd166;
+}
+
+#fokus-datum {
+  font-size: 34px;
+  margin-left: 18px;
+  color: #d8dce6;
+}
+
+#uhr {
+  float: right;
+  font-size: 46px;
+  color: #d8dce6;
+  padding-top: 4px;
+}
+
+/* Fokus-Tag: so gross wie moeglich, JS verkleinert bei Bedarf (gr-m/gr-s). */
+#fokus {
+  height: 300px;
+  overflow: hidden;
+  padding-top: 12px;
+}
+
+/* Ein Termin = Tabellenzeile: Zeit links fest, Titel rechts mit Umbruch. */
+.ev {
+  display: table;
+  table-layout: fixed;
+  width: 100%;
+  padding: 6px 0;
+}
+
+.ev-zeit {
+  display: table-cell;
+  width: 290px;
+  font-size: 40px;
+  line-height: 60px;
+  color: #9fb4d8;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.ev-text {
+  display: table-cell;
+  vertical-align: top;
+}
+
+.ev-titel {
+  display: block;
+  font-size: 54px;
+  line-height: 60px;
+  font-weight: bold;
+  max-height: 120px;
+  overflow: hidden;
+}
+
+.ev-ort, .ev-hinweis {
+  display: block;
+  font-size: 28px;
+  color: #aab3c5;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.ev-hinweis {
+  color: #ffd166;
+}
+
+.gr-m .ev-zeit { font-size: 32px; width: 240px; line-height: 46px; }
+.gr-m .ev-titel { font-size: 42px; line-height: 46px; max-height: 92px; }
+.gr-m .ev-ort, .gr-m .ev-hinweis { font-size: 24px; }
+.gr-s .ev { padding: 2px 0; }
+.gr-s .ev-zeit { font-size: 26px; width: 200px; line-height: 34px; }
+.gr-s .ev-titel { font-size: 30px; line-height: 34px; max-height: 34px; white-space: nowrap; }
+.gr-s .ev-ort, .gr-s .ev-hinweis { font-size: 20px; }
+
+.ev.wichtig .ev-titel { color: #ff8a5c; }
+.ev.jetzt .ev-zeit { color: #7ee08a; }
+.ev.vorbei { opacity: 0.4; }
+
+.fokus-leer {
+  font-size: 40px;
+  color: #8792a8;
+  padding-top: 30px;
+}
+
+/* --- Wochenleiste --- */
+
+#woche {
+  height: 210px;
+  display: table;
+  table-layout: fixed;
+  width: 100%;
+  border-top: 2px solid #34405a;
+}
+
+.tag {
+  display: table-cell;
+  vertical-align: top;
+  padding: 8px 8px 0 8px;
+  border-left: 1px solid #2a3550;
+  overflow: hidden;
+}
+
+/* Feste Hoehe im Inneren: eine Tabellenzelle wuerde sonst mitwachsen. */
+.tag-inhalt {
+  height: 200px;
+  overflow: hidden;
+}
+
+.tag:first-child {
+  border-left: 0;
+  padding-left: 0;
+}
+
+.tag-kopf {
+  font-size: 24px;
+  font-weight: bold;
+  color: #9fb4d8;
+  margin-bottom: 4px;
+  white-space: nowrap;
+}
+
+.tag.we .tag-kopf { color: #e0a0a0; }
+
+.tag-ev {
+  font-size: 20px;
+  line-height: 24px;
+  margin-bottom: 4px;
+  max-height: 72px;
+  overflow: hidden;
+  color: #e6e6e6;
+}
+
+.tag-ev .z {
+  color: #9fb4d8;
+  margin-right: 4px;
+}
+
+.tag-ev.wichtig { color: #ff8a5c; }
+
+.tag-mehr {
+  font-size: 18px;
+  color: #8792a8;
+}
+
+/* --- Demnaechst --- */
+
+#dn-kopf {
+  height: 32px;
+  padding-top: 6px;
+  border-top: 2px solid #34405a;
+  font-size: 20px;
+  color: #8792a8;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+#stand {
+  margin-left: 24px;
+}
+
+#stand.alt {
+  color: #ff8a5c;
+  font-weight: bold;
+}
+
+#fuss-hinweis {
+  float: right;
+  color: #6c7891;
+}
+
+#demnaechst {
+  height: 132px;
+  overflow: hidden;
+}
+
+.dn-spalte {
+  float: left;
+  width: 50%;
+  padding-right: 16px;
+}
+
+.dn {
+  font-size: 20px;
+  line-height: 25px;
+  white-space: nowrap;
+  overflow: hidden;
+  color: #d8dce6;
+}
+
+.dn .d {
+  display: inline-block;
+  width: 110px;
+  color: #9fb4d8;
+}
+
+.dn .z {
+  color: #9fb4d8;
+  margin-right: 6px;
+}
+
+.dn.wichtig { color: #ff8a5c; }
+
+/* --- Knopf ueber HA --- */
+
+#kal-knopf {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  z-index: 5;
+  padding: 10px 18px;
+  font-size: 20px;
+  color: #fff;
+  background: #111a2c;
+  opacity: 0.75;
+  border-top-right-radius: 12px;
+}

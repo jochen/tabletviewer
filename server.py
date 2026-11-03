@@ -24,6 +24,7 @@ import time
 from aiohttp import web, WSMsgType
 
 from parser import parse_recipe
+import flur
 
 # --- Konfiguration (per Umgebungsvariable ueberschreibbar) ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -409,6 +410,8 @@ def create_app():
     app.router.add_post("/api/timer", handle_post_timer)
     app.router.add_post("/api/timer/klingelt", handle_post_timer_klingelt)
     app.router.add_post("/api/reload", handle_post_reload)
+    # Flur-Tablet (HA im iframe + Kalender-Overlay), siehe flur.py
+    flur.setup(app)
     # Titelbilder ausliefern. Verzeichnis sicherstellen, damit die Route IMMER
     # existiert - auch wenn images/ erst nach dem Serverstart befuellt wird
     # (Gaston legt Bilder spaeter ab). add_static braucht ein existierendes Dir.

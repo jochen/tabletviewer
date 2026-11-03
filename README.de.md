@@ -189,3 +189,54 @@ für den Großteil. Aufbau jeder Datei:
   Chromium) rendert die laufende Seite headless als PNG nach `shots/`, um Layout
   in Quer-/Hochformat ohne das echte Tablet zu beurteilen. Bedarf einmalig
   `apt install chromium fonts-noto-color-emoji` und `pip install playwright`.
+
+## Flur-Tablet (Kalender-Overlay über Home Assistant)
+
+Zweites Gerät: Fire HD 10 (5. Gen) im Flur, **1280×800 quer**, WallPanel. Die
+Seite `GET /flur` zeigt **Home Assistant als Vollbild-iframe** und legt bei
+Bedarf den **Familienkalender** darüber. Ein Tap blendet das Overlay aus, und HA
+ist sofort bedienbar, ohne neu zu laden. Unten links gibt es einen kleinen
+Knopf „Termine", um den Kalender von Hand zu holen.
+
+Voraussetzung in HA: `http: use_x_frame_options: false` (danach ein **voller**
+Neustart, der Schnellstart reicht nicht).
+
+**Rollen:** Node-RED entscheidet, *wann* angezeigt wird (Bewegung, Uhrzeit),
+das Abrufskript liefert die *Fakten*, der Server baut die Darstellung.
+Gaston-Anmerkungen (`hinweis`, `wichtig` je Termin) sind vorgesehen, die
+Anbindung ist noch offen.
+
+| Route | Zweck |
+|---|---|
+| `GET /flur` | Wrapper-Seite (HA-iframe + Overlay) |
+| `GET /api/flur/state` | Zustand inkl. fertig aufbereitetem Kalender; Polling-Fallback |
+| `WS /ws/flur` | Push an die Flur-Seite |
+| `POST /api/flur/events` | Termine vom Abrufskript `{"events":[…], "stand":ISO, "quelle":…}` |
+| `POST /api/flur/show` | `{"view":"kalender", "fokus":"heute"\|"morgen", "seconds":900, "skip_if_seen_within_s":0}` → `{"shown":bool,…}`; `seconds:0` = bis Tap |
+| `POST /api/flur/hide` | Overlay aus; `{"grund":"tap"}` kommt vom Tablet und setzt `gesehen_um` |
+| `POST /api/flur/reload` | `{"ziel":"seite"\|"ha"}` lädt die Seite bzw. nur das HA-iframe neu |
+
+Event-Format (vom Abrufskript): `id`, `titel`, `ort`, `beschreibung`,
+`start`/`ende` (ISO mit Zeit oder `YYYY-MM-DD` für ganztägig, Ende exklusiv),
+optional `hinweis`, `wichtig`.
+
+Darstellung: oben groß der Fokustag („Heute" bzw. abends „Morgen"; vergangene
+Termine verblasst, laufende grün), darunter die nächsten 6 Tage als
+Wochenleiste, unten „Demnächst" bis 6 Wochen (max. 10). Ist der Kalenderstand
+älter als 3 h, steht das sichtbar in Orange da.
+
+**Kalenderabruf:** `tools/flur_kalender.py` (venv `.venv` mit `icalendar`,
+`recurring-ical-events`) liest die geheime iCal-Adresse aus
+`~/.config/tabletviewer/flur.env` (`FLUR_ICAL_URL=…`, Rechte 600, **nicht im
+Repo**) und schickt die nächsten 45 Tage. Läuft alle 15 min über
+`systemd/flur-kalender.{service,timer}`:
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install icalendar recurring-ical-events
+cp systemd/flur-kalender.* ~/.config/systemd/user/
+systemctl --user daemon-reload && systemctl --user enable --now flur-kalender.timer
+```
+
+Env: `TABLETVIEWER_FLUR_HA_URL` (Default `http://192.168.7.2:8123/lovelace/default_view`),
+`TABLETVIEWER_FLUR_TOKEN` (optional, Bearer für die schreibenden Routen),
+`TABLETVIEWER_TZ` (Default `Europe/Berlin`).
