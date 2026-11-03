@@ -195,7 +195,7 @@ für den Großteil. Aufbau jeder Datei:
 Zweites Gerät: Fire HD 10 (5. Gen) im Flur, **1280×800 quer**, WallPanel. Die
 Seite `GET /flur` zeigt **Home Assistant als Vollbild-iframe** und legt bei
 Bedarf den **Familienkalender** darüber. Ein Tap blendet das Overlay aus, und HA
-ist sofort bedienbar, ohne neu zu laden. Unten links gibt es einen kleinen
+ist sofort bedienbar, ohne neu zu laden. Oben mittig gibt es einen kleinen
 Knopf „Termine", um den Kalender von Hand zu holen.
 
 Voraussetzung in HA: `http: use_x_frame_options: false` (danach ein **voller**

@@ -257,13 +257,17 @@ html, body {
 
 #kal-knopf {
   position: absolute;
-  left: 0;
-  bottom: 0;
+  top: 0;
+  left: 50%;
+  width: 140px;
+  margin-left: -70px;
   z-index: 5;
-  padding: 10px 18px;
+  padding: 8px 0;
+  text-align: center;
   font-size: 20px;
   color: #fff;
   background: #111a2c;
   opacity: 0.75;
-  border-top-right-radius: 12px;
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
 }
