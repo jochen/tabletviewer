@@ -235,7 +235,7 @@
 
   function onKnopfTap(e) {
     lokalVersteckt = null;
-    xhrPost("/api/flur/show", { view: "kalender", fokus: "heute", seconds: 300 });
+    xhrPost("/api/flur/show", { view: "kalender", fokus: "auto", seconds: 300 });
     if (e && e.preventDefault) {
       e.preventDefault();
     }
