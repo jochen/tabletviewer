@@ -45,7 +45,7 @@
 
   function xhrGetState() {
     var xhr = new XMLHttpRequest();
-    xhr.open("GET", "/api/flur/state", true);
+    xhr.open("GET", "/api/flur/state?von=seite", true);
     xhr.onreadystatechange = function () {
       if (xhr.readyState === 4 && xhr.status === 200) {
         try {

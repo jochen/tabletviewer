@@ -209,7 +209,7 @@ Anbindung ist noch offen.
 | Route | Zweck |
 |---|---|
 | `GET /flur` | Wrapper-Seite (HA-iframe + Overlay) |
-| `GET /api/flur/state` | Zustand inkl. fertig aufbereitetem Kalender; Polling-Fallback |
+| `GET /api/flur/state` | Zustand inkl. fertig aufbereitetem Kalender; Polling-Fallback. `seiten: {ws, poll_vor_s, aktiv}` sagt, ob das Tablet `/flur` gerade zeigt (Gesundheitscheck für Node-RED; die Seite selbst pollt mit `?von=seite`) |
 | `WS /ws/flur` | Push an die Flur-Seite |
 | `POST /api/flur/events` | Termine vom Abrufskript `{"events":[…], "stand":ISO, "quelle":…}` |
 | `POST /api/flur/show` | `{"view":"kalender", "fokus":"heute"\|"morgen", "seconds":900, "skip_if_seen_within_s":0}` → `{"shown":bool,…}`; `seconds:0` = bis Tap |
