@@ -271,6 +271,14 @@
     if (!evs.length) {
       h = '<div class="fokus-leer">Keine Termine.</div>';
     }
+    // Vorab-Hinweise von Gaston fuer spaetere Termine ("Überweisung holen")
+    var vb = k.fokus_vorab || [];
+    for (var v = 0; v < vb.length; v++) {
+      h += '<div class="ev vorab' + (vb[v].wichtig ? " wichtig" : "") + '">'
+         + '<span class="ev-zeit">&#128204;</span>'
+         + '<span class="ev-text"><span class="ev-titel">' + esc(vb[v].text) + "</span>"
+         + '<span class="ev-ort">für ' + esc(vb[v].fuer) + "</span></span></div>";
+    }
     byId("fokus").innerHTML = h;
 
     // Wochenleiste

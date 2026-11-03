@@ -218,7 +218,8 @@ Anbindung ist noch offen.
 
 Event-Format (vom Abrufskript): `id`, `titel`, `ort`, `beschreibung`,
 `start`/`ende` (ISO mit Zeit oder `YYYY-MM-DD` für ganztägig, Ende exklusiv),
-optional `hinweis`, `wichtig`.
+optional `hinweis`, `wichtig`, `vorab` (`[{ab, text}]`: ab dem Datum unter dem Fokustag gezeigt).
+Diese drei kommen aus dem **Gaston-Block** am Ende der Terminbeschreibung (`— Gaston —`, `📌 …`, `📌 ab JJJJ-MM-TT: …`, `❗`), den Gaston mit dem Skill `familienkalender` pflegt. Das Abrufskript wertet ihn aus und schneidet ihn aus der Beschreibung.
 
 Darstellung: oben groß der Fokustag („Heute" bzw. abends „Morgen"; vergangene
 Termine verblasst, laufende grün), darunter die nächsten 6 Tage als

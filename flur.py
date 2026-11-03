@@ -144,6 +144,7 @@ def _normalisiere(ev):
         "ort": (str(ev["ort"]).strip() or None) if ev.get("ort") else None,
         "hinweis": (str(ev["hinweis"]).strip() or None) if ev.get("hinweis") else None,
         "wichtig": bool(ev.get("wichtig")),
+        "vorab": _vorab(ev.get("vorab")),
         "ganztags": ganztags,
         "start": start,
         "ende": ende,
@@ -152,6 +153,17 @@ def _normalisiere(ev):
         "start_ms": start_ms,
         "ende_ms": ende_ms,
     }
+
+
+def _vorab(liste):
+    """[{ab: 'JJJJ-MM-TT', text}] -> [(date, text)], Murks wird ignoriert."""
+    out = []
+    for v in liste if isinstance(liste, list) else []:
+        try:
+            out.append((dt.date.fromisoformat(v["ab"]), str(v["text"]).strip()))
+        except (KeyError, TypeError, ValueError):
+            continue
+    return [(ab, t) for ab, t in out if t]
 
 
 def _hm(d):
@@ -203,6 +215,17 @@ def baue_kalender(fokus="heute", jetzt=None):
             "start_ms": e["start_ms"], "ende_ms": e["ende_ms"],
         })
 
+    # Vorab-Hinweise: ab ihrem Datum bis vor den Termin unter dem Fokustag
+    vorab = []
+    for e in sorted(events, key=lambda e: e["start_ms"]):
+        if e["erster"] <= fokustag:
+            continue
+        for ab, text in e["vorab"]:
+            if ab <= fokustag:
+                zeit = "" if e["ganztags"] else " " + _hm(e["start"])
+                vorab.append({"text": text, "wichtig": e["wichtig"],
+                              "fuer": "%s%s %s" % (_datum_kurz(e["erster"]), zeit, e["titel"])})
+
     woche = []
     for i in range(1, WOCHE_TAGE + 1):
         tag = fokustag + dt.timedelta(days=i)
@@ -250,6 +273,7 @@ def baue_kalender(fokus="heute", jetzt=None):
         "fokus_datum": "%s, %d. %s" % (WT_LANG[fokustag.weekday()], fokustag.day,
                                        MONATE[fokustag.month - 1]),
         "fokus_events": fokus_events,
+        "fokus_vorab": vorab,
         "woche": woche,
         "demnaechst": demnaechst,
         "demnaechst_mehr": max(0, len(spaeter) - DEMNAECHST_MAX),
