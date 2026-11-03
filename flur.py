@@ -37,6 +37,8 @@ HA_URL = os.environ.get("TABLETVIEWER_FLUR_HA_URL",
 FLUR_TOKEN = os.environ.get("TABLETVIEWER_FLUR_TOKEN", "")
 
 DEFAULT_SHOW_SECONDS = 900
+# fokus "auto": ab dieser Stunde zeigt das Overlay "Morgen" statt "Heute"
+MORGEN_AB_STUNDE = int(os.environ.get("TABLETVIEWER_FLUR_MORGEN_AB", "18"))
 WOCHE_TAGE = 6          # Tage nach dem Fokustag in der Wochenleiste
 DEMNAECHST_TAGE = 42    # Horizont fuer "Demnaechst", ab heute gerechnet
 DEMNAECHST_MAX = 10    # 2 Spalten x 5 Zeilen, mehr passt auf 1280x800 nicht
@@ -412,8 +414,10 @@ async def handle_show(request):
     if view != "kalender":
         return web.json_response({"error": "view must be 'kalender'"}, status=400)
     fokus = data.get("fokus", "heute")
+    if fokus == "auto":
+        fokus = "morgen" if dt.datetime.now(TZ).hour >= MORGEN_AB_STUNDE else "heute"
     if fokus not in ("heute", "morgen"):
-        return web.json_response({"error": "fokus must be 'heute' or 'morgen'"}, status=400)
+        return web.json_response({"error": "fokus must be 'heute', 'morgen' or 'auto'"}, status=400)
     try:
         sekunden = int(data.get("seconds", DEFAULT_SHOW_SECONDS))
         skip = int(data.get("skip_if_seen_within_s") or 0)
