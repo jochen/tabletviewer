@@ -1,0 +1,10 @@
+[Unit]
+Description=tabletviewer - Familienkalender (iCal) holen und an die Flur-Anzeige schicken
+After=network-online.target tabletviewer.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/projects/tabletviewer
+# Enthaelt FLUR_ICAL_URL (geheim, nicht im Repo), optional TABLETVIEWER_FLUR_TOKEN
+EnvironmentFile=%h/.config/tabletviewer/flur.env
+ExecStart=%h/projects/tabletviewer/.venv/bin/python %h/projects/tabletviewer/tools/flur_kalender.py

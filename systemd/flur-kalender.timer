@@ -1,0 +1,11 @@
+[Unit]
+Description=Familienkalender fuer die Flur-Anzeige alle 15 Minuten holen
+
+[Timer]
+OnBootSec=1min
+OnCalendar=*:0/15
+RandomizedDelaySec=60
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Flur</title>
+<link rel="stylesheet" href="/flur.css?v=2">
+</head>
+<body>
+
+<!-- Home Assistant laeuft dauerhaft im iframe und bleibt geladen. Das
+     Overlay liegt nur darueber; ausblenden = sofort wieder HA, ohne Reload. -->
+<iframe id="ha" src="about:blank"></iframe>
+
+<!-- Kalender-Overlay. Ein Tap irgendwo blendet es aus ("gesehen"). -->
+<div id="kal" style="display:none;">
+  <div id="kal-kopf">
+    <span id="fokus-titel"></span>
+    <span id="fokus-datum"></span>
+    <span id="uhr"></span>
+  </div>
+  <div id="fokus"></div>
+  <div id="woche"></div>
+  <div id="dn-kopf">
+    <span id="dn-titel">Demnächst</span>
+    <span id="stand"></span>
+    <span id="fuss-hinweis">Antippen &rarr; Home Assistant</span>
+  </div>
+  <div id="demnaechst"></div>
+</div>
+
+<!-- Kleiner Knopf oben mittig (dort ist die HA-Kopfzeile fast leer), um den
+     Kalender ueber HA von Hand aufzurufen. -->
+<div id="kal-knopf" style="display:none;">Termine</div>
+
+<script src="/flur.js?v=1"></script>
+</body>
+</html>
