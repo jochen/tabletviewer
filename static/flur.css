@@ -117,10 +117,21 @@ html, body {
   color: #ffd166;
 }
 
-/* Vorab-Hinweis: etwas kleiner, gelb, Bezugstermin darunter */
-.vorab .ev-zeit { text-align: right; padding-right: 24px; }
-.vorab .ev-titel { font-size: 44px; line-height: 52px; color: #ffd166; font-weight: normal; }
-.ev.vorab.wichtig .ev-titel { color: #ff8a5c; }
+/* Vorab-Hinweis: klein und ruhig, links das Datum des spaeteren Termins.
+   Darf nicht wie ein heutiger Termin wirken. */
+.vorab-kopf {
+  font-size: 24px;
+  color: #8792a8;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  border-top: 1px solid #34405a;
+  margin-top: 10px;
+  padding-top: 8px;
+}
+.vorab { padding: 2px 0; }
+#fokus .vorab .ev-zeit { font-size: 28px; line-height: 40px; color: #8792a8; }
+#fokus .vorab .ev-titel { font-size: 32px; line-height: 40px; color: #d8dce6; font-weight: normal; max-height: 40px; }
+#fokus .vorab .ev-ort { font-size: 24px; }
 
 .gr-m .ev-zeit { font-size: 32px; width: 240px; line-height: 46px; }
 .gr-m .ev-titel { font-size: 42px; line-height: 46px; max-height: 92px; }
@@ -135,10 +146,22 @@ html, body {
 .ev.vorbei { opacity: 0.4; }
 
 .fokus-leer {
-  font-size: 40px;
-  color: #8792a8;
-  padding-top: 30px;
+  font-size: 54px;
+  line-height: 60px;
+  font-weight: bold;
+  color: #d8dce6;
+  padding: 16px 0 6px;
 }
+
+.fokus-morgen {
+  font-size: 34px;
+  line-height: 44px;
+  color: #aab3c5;
+  white-space: nowrap;
+  overflow: hidden;
+  padding-bottom: 6px;
+}
+.fm-label { color: #9fb4d8; }
 
 /* --- Wochenleiste --- */
 

@@ -269,15 +269,35 @@
       h += "</span></div>";
     }
     if (!evs.length) {
-      h = '<div class="fokus-leer">Keine Termine.</div>';
+      h = '<div class="fokus-leer">' + esc(k.fokus_titel) + " keine Termine.</div>";
+      var ft = k.folgetag;
+      if (ft) {
+        var fz = "";
+        for (var f = 0; f < ft.length && f < 3; f++) {
+          fz += (f ? ", " : "") + (ft[f].zeit ? esc(ft[f].zeit) + " " : "") + esc(ft[f].titel);
+        }
+        if (ft.length > 3) {
+          fz += " (+" + (ft.length - 3) + ")";
+        }
+        h += '<div class="fokus-morgen"><span class="fm-label">Morgen:</span> '
+           + (ft.length ? fz : "auch nichts.") + "</div>";
+      }
     }
-    // Vorab-Hinweise von Gaston fuer spaetere Termine ("Überweisung holen")
+    // Vorab-Hinweise von Gaston fuer spaetere Termine ("Bonusheft suchen").
+    // Bewusst klein und mit Datum des Termins, damit sie nicht wie ein
+    // heutiger Termin aussehen.
     var vb = k.fokus_vorab || [];
+    if (vb.length) {
+      h += '<div class="vorab-kopf">Vorbereiten für später</div>';
+    }
     for (var v = 0; v < vb.length; v++) {
-      h += '<div class="ev vorab' + (vb[v].wichtig ? " wichtig" : "") + '">'
-         + '<span class="ev-zeit">&#128204;</span>'
-         + '<span class="ev-text"><span class="ev-titel">' + esc(vb[v].text) + "</span>"
-         + '<span class="ev-ort">für ' + esc(vb[v].fuer) + "</span></span></div>";
+      var x0 = vb[v];
+      var wann = x0.in_tagen === 1 ? "morgen" : (x0.in_tagen ? "in " + x0.in_tagen + " Tagen" : "");
+      h += '<div class="ev vorab">'
+         + '<span class="ev-zeit">' + esc(x0.datum || "") + "</span>"
+         + '<span class="ev-text"><span class="ev-titel">' + esc(x0.text) + "</span>"
+         + '<span class="ev-ort">für ' + esc(x0.termin || x0.fuer)
+         + (wann ? " &middot; " + wann : "") + "</span></span></div>";
     }
     byId("fokus").innerHTML = h;
 

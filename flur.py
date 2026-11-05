@@ -226,7 +226,20 @@ def baue_kalender(fokus="heute", jetzt=None):
             if ab <= fokustag:
                 zeit = "" if e["ganztags"] else " " + _hm(e["start"])
                 vorab.append({"text": text, "wichtig": e["wichtig"],
-                              "fuer": "%s%s %s" % (_datum_kurz(e["erster"]), zeit, e["titel"])})
+                              "fuer": "%s%s %s" % (_datum_kurz(e["erster"]), zeit, e["titel"]),
+                              # Getrennt, damit das Tablet den Hinweis klar als
+                              # Vorbereitung fuer einen spaeteren Tag zeigen kann.
+                              "datum": _datum_kurz(e["erster"]),
+                              "termin": e["titel"] + ("" if e["ganztags"] else ", %s Uhr" % _hm(e["start"])),
+                              "in_tagen": (e["erster"] - fokustag).days})
+
+    # Ist der Fokustag "heute" und leer, kurz sagen, was morgen ansteht.
+    folgetag = None
+    if fokus != "morgen" and not fokus_events:
+        folgetag = []
+        for e in _am_tag(events, fokustag + dt.timedelta(days=1)):
+            folgetag.append({"zeit": "" if e["ganztags"] else _hm(e["start"]),
+                             "titel": e["titel"]})
 
     woche = []
     for i in range(1, WOCHE_TAGE + 1):
@@ -276,6 +289,7 @@ def baue_kalender(fokus="heute", jetzt=None):
                                        MONATE[fokustag.month - 1]),
         "fokus_events": fokus_events,
         "fokus_vorab": vorab,
+        "folgetag": folgetag,
         "woche": woche,
         "demnaechst": demnaechst,
         "demnaechst_mehr": max(0, len(spaeter) - DEMNAECHST_MAX),
