@@ -43,6 +43,9 @@ FLUR_TOKEN = os.environ.get("TABLETVIEWER_FLUR_TOKEN", "")
 # versteht und JSON mit "alle_ok" ausgibt (kalender.py benachrichtige im
 # OpenClaw-Workspace). Leer = keine Meldungen.
 MELDEN_CMD = shlex.split(os.environ.get("TABLETVIEWER_FLUR_MELDEN_CMD", ""))
+# Rueckfall nach dem letzten Fehlversuch: "<cmd> --text X" (JSON mit alle_ok),
+# hier "kalender.py hauskanal" -> Telegram-Hauskanal. Leer = kein Rueckfall.
+RUECKFALL_CMD = shlex.split(os.environ.get("TABLETVIEWER_FLUR_RUECKFALL_CMD", ""))
 MELDEN_VOR_ABFAHRT = dt.timedelta(minutes=15)   # Zeit zum Fertigmachen
 MELDEN_OHNE_ABFAHRT = dt.timedelta(minutes=60)
 MELDEN_FENSTER = dt.timedelta(minutes=20)       # verpasst (Neustart) -> bis dahin nachholen
@@ -574,6 +577,10 @@ async def _melde_an(person, plan, tag):
     args = MELDEN_CMD + [person, "--titel", plan["titel"], "--text", plan["text"], "--tag", tag]
     if plan["wichtig"]:
         args.append("--wichtig")
+    return await _befehl(args)
+
+
+async def _befehl(args):
     try:
         proc = await asyncio.create_subprocess_exec(
             *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
@@ -604,6 +611,7 @@ async def melde_runde(jetzt=None):
                                           "um": plan["zeit"].isoformat(timespec="minutes"),
                                           "personen": {}})
         tag = "termin-" + hashlib.sha1(e["id"].encode("utf-8")).hexdigest()[:10]
+        aufgegeben = []
         for p in e["melden"]["an"]:
             st = eintrag["personen"].setdefault(p, {"ok": False, "versuche": 0})
             if st["ok"] or st["versuche"] >= MELDEN_VERSUCHE:
@@ -619,6 +627,21 @@ async def melde_runde(jetzt=None):
             else:
                 log.warning("Meldung an %s fehlgeschlagen (%d/%d): %s",
                             p, st["versuche"], MELDEN_VERSUCHE, fehler)
+                if st["versuche"] >= MELDEN_VERSUCHE:
+                    aufgegeben.append(p)
+        # Rueckfall: einmal fuer alle, die gerade endgueltig gescheitert sind
+        if aufgegeben and RUECKFALL_CMD:
+            namen = ", ".join(n.capitalize() for n in aufgegeben)
+            text = "⚠️ Konnte %s nicht aufs Handy erreichen:\n%s\n%s" % (
+                namen, plan["titel"], plan["text"])
+            ok, fehler = await _befehl(RUECKFALL_CMD + ["--text", text])
+            for p in aufgegeben:
+                eintrag["personen"][p]["rueckfall"] = "ok" if ok else (fehler or "fehler")
+            geaendert = True
+            if ok:
+                log.info("Rueckfall Hauskanal fuer %s: %s", namen, plan["titel"])
+            else:
+                log.error("Auch der Rueckfall ist gescheitert (%s): %s", namen, fehler)
     # Altes nach 3 Tagen vergessen
     grenze = jetzt - dt.timedelta(days=3)
     for k in [k for k, v in status.items() if _parse_zeit(v["um"]) < grenze]:
@@ -649,7 +672,8 @@ async def handle_meldungen(request):
                             "um": plan["zeit"].isoformat(timespec="minutes"),
                             "titel": plan["titel"], "text": plan["text"]})
     geplant.sort(key=lambda g: g["um"])
-    return web.json_response({"aktiv": bool(MELDEN_CMD), "geplant": geplant,
+    return web.json_response({"aktiv": bool(MELDEN_CMD), "rueckfall": bool(RUECKFALL_CMD),
+                              "geplant": geplant,
                               "verschickt": FLUR.get("meldungen", {})})
 
 

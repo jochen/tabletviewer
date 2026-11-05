@@ -230,7 +230,10 @@ has started. At most 3 attempts per person; sent notifications are kept in
 --tag … [--wichtig]`, expects JSON with `alle_ok`), here `kalender.py
 benachrichtige` from the OpenClaw workspace, which knows the mapping person →
 HA instance → `notify.mobile_app_*`. Without the variable, no notifications
-are sent. It lives in `~/.config/tabletviewer/tabletviewer.env` (read by
+are sent. If a person still cannot be reached on the 3rd attempt, the server sends one
+combined message via `TABLETVIEWER_FLUR_RUECKFALL_CMD` (called as `<cmd> --text
+…`), here `kalender.py hauskanal` → the Telegram family channel. Both
+variables live in `~/.config/tabletviewer/tabletviewer.env` (read by
 `tabletviewer.service`, not in the repo).
 
 Layout: the focus day large at the top ("Heute" = today, or "Morgen" =
@@ -253,5 +256,5 @@ systemctl --user daemon-reload && systemctl --user enable --now flur-kalender.ti
 
 Env: `TABLETVIEWER_FLUR_HA_URL` (default `http://192.168.7.2:8123/lovelace/default_view`),
 `TABLETVIEWER_FLUR_TOKEN` (optional bearer token for the write routes),
-`TABLETVIEWER_FLUR_MELDEN_CMD` (phone notifications, see above),
+`TABLETVIEWER_FLUR_MELDEN_CMD`, `TABLETVIEWER_FLUR_RUECKFALL_CMD` (phone notifications, see above),
 `TABLETVIEWER_TZ` (default `Europe/Berlin`).

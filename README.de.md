@@ -235,7 +235,10 @@ nach Neustart). Verschickt wird über den Befehl in
 --tag … [--wichtig]`, erwartet JSON mit `alle_ok`), hier `kalender.py
 benachrichtige` aus dem OpenClaw-Workspace: der kennt die Zuordnung Person →
 HA-Instanz → `notify.mobile_app_*`. Ohne die Variable bleiben Meldungen aus.
-Sie steht in `~/.config/tabletviewer/tabletviewer.env` (von
+Scheitert die Meldung an jemanden auch beim 3. Versuch, schickt der Server
+einmal eine Sammelnachricht über `TABLETVIEWER_FLUR_RUECKFALL_CMD` (aufgerufen
+als `<cmd> --text …`), hier `kalender.py hauskanal` → Telegram-Hauskanal.
+Beide Variablen stehen in `~/.config/tabletviewer/tabletviewer.env` (von
 `tabletviewer.service` gelesen, nicht im Repo).
 
 Darstellung: oben groß der Fokustag („Heute" bzw. abends „Morgen"; vergangene
@@ -257,5 +260,5 @@ systemctl --user daemon-reload && systemctl --user enable --now flur-kalender.ti
 
 Env: `TABLETVIEWER_FLUR_HA_URL` (Default `http://192.168.7.2:8123/lovelace/default_view`),
 `TABLETVIEWER_FLUR_TOKEN` (optional, Bearer für die schreibenden Routen),
-`TABLETVIEWER_FLUR_MELDEN_CMD` (Handy-Meldungen, siehe oben),
+`TABLETVIEWER_FLUR_MELDEN_CMD`, `TABLETVIEWER_FLUR_RUECKFALL_CMD` (Handy-Meldungen, siehe oben),
 `TABLETVIEWER_TZ` (Default `Europe/Berlin`).
