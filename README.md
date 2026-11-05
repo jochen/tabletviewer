@@ -198,8 +198,8 @@ restart; a quick reload is not enough).
 
 **Roles:** Node-RED decides *when* to show it (motion, time of day), the fetch
 script supplies the *facts*, the server builds the view. Gaston annotations
-(`hinweis`, `wichtig` per event) are provided for; how they get in is still
-open.
+(`hinweis`, `wichtig`, `vorab`, `melden`) come from the Gaston block in the
+event description (see below).
 
 | Route | Purpose |
 |---|---|
@@ -210,11 +210,28 @@ open.
 | `POST /api/flur/show` | `{"view":"kalender", "fokus":"heute"\|"morgen"\|"auto", "seconds":900, "skip_if_seen_within_s":0}` → `{"shown":bool,…}`; `seconds:0` = until tapped; `fokus:"auto"` = "morgen" from 18:00 (`TABLETVIEWER_FLUR_MORGEN_AB`), also used by the "Termine" button |
 | `POST /api/flur/hide` | overlay off; `{"grund":"tap"}` comes from the tablet and sets `gesehen_um` |
 | `POST /api/flur/reload` | `{"ziel":"seite"\|"ha"}` reloads the page or just the HA iframe |
+| `GET /api/flur/meldungen` | phone notification diagnostics: `geplant` (upcoming) and `verschickt` (per person `ok`, `versuche`, `fehler`) |
 
 Event format (from the fetch script): `id`, `titel`, `ort`, `beschreibung`,
 `start`/`ende` (ISO with time, or `YYYY-MM-DD` for all-day, end exclusive),
-optional `hinweis`, `wichtig`, `vorab` (`[{ab, text}]`: shown under the focus day from that date on).
-These come from the **Gaston block** at the end of the event description (`— Gaston —`, `📌 …`, `📌 ab YYYY-MM-DD: …`, `❗`), which Gaston maintains with the `familienkalender` skill. The fetch script parses it and strips it from the description.
+optional `hinweis`, `wichtig`, `vorab` (`[{ab, text}]`: shown under the focus day from that date on),
+`melden` (`{an: [names], um: "H:MM"|null}`).
+These come from the **Gaston block** at the end of the event description (`— Gaston —`, `📌 …`, `📌 ab YYYY-MM-DD: …`, `❗`, `🔔 an: jochen, maja [(7:15)]`), which Gaston maintains with the `familienkalender` skill. The fetch script parses it and strips it from the description.
+
+**Phone notifications (🔔):** Gaston only decides *who* is notified; the server
+works out *when* from the facts, so a moved departure moves the notification
+too: with `📌 Abfahrt H:MM` 15 min before departure (high priority), otherwise
+60 min before the start, with a fixed time `(7:15)` at that time on the event
+day; all-day events without a time get none. Checked every 30 s; a missed
+notification (restart) is caught up to 20 min late, but never after the event
+has started. At most 3 attempts per person; sent notifications are kept in
+`flur_state.json` (no duplicates after a restart). Sending uses the command in
+`TABLETVIEWER_FLUR_MELDEN_CMD` (called as `<cmd> <person> --titel … --text …
+--tag … [--wichtig]`, expects JSON with `alle_ok`), here `kalender.py
+benachrichtige` from the OpenClaw workspace, which knows the mapping person →
+HA instance → `notify.mobile_app_*`. Without the variable, no notifications
+are sent. It lives in `~/.config/tabletviewer/tabletviewer.env` (read by
+`tabletviewer.service`, not in the repo).
 
 Layout: the focus day large at the top ("Heute" = today, or "Morgen" =
 tomorrow in the evening; past events faded, running ones green), below it the
@@ -236,4 +253,5 @@ systemctl --user daemon-reload && systemctl --user enable --now flur-kalender.ti
 
 Env: `TABLETVIEWER_FLUR_HA_URL` (default `http://192.168.7.2:8123/lovelace/default_view`),
 `TABLETVIEWER_FLUR_TOKEN` (optional bearer token for the write routes),
+`TABLETVIEWER_FLUR_MELDEN_CMD` (phone notifications, see above),
 `TABLETVIEWER_TZ` (default `Europe/Berlin`).

@@ -203,8 +203,8 @@ Neustart, der Schnellstart reicht nicht).
 
 **Rollen:** Node-RED entscheidet, *wann* angezeigt wird (Bewegung, Uhrzeit),
 das Abrufskript liefert die *Fakten*, der Server baut die Darstellung.
-Gaston-Anmerkungen (`hinweis`, `wichtig` je Termin) sind vorgesehen, die
-Anbindung ist noch offen.
+Gaston-Anmerkungen (`hinweis`, `wichtig`, `vorab`, `melden`) kommen aus dem
+Gaston-Block der Terminbeschreibung (siehe unten).
 
 | Route | Zweck |
 |---|---|
@@ -215,11 +215,28 @@ Anbindung ist noch offen.
 | `POST /api/flur/show` | `{"view":"kalender", "fokus":"heute"\|"morgen"\|"auto", "seconds":900, "skip_if_seen_within_s":0}` → `{"shown":bool,…}`; `seconds:0` = bis Tap; `fokus:"auto"` = ab 18 Uhr „morgen" (`TABLETVIEWER_FLUR_MORGEN_AB`), so arbeitet auch der Knopf „Termine" |
 | `POST /api/flur/hide` | Overlay aus; `{"grund":"tap"}` kommt vom Tablet und setzt `gesehen_um` |
 | `POST /api/flur/reload` | `{"ziel":"seite"\|"ha"}` lädt die Seite bzw. nur das HA-iframe neu |
+| `GET /api/flur/meldungen` | Diagnose der Handy-Meldungen: `geplant` (anstehend) und `verschickt` (je Person `ok`, `versuche`, `fehler`) |
 
 Event-Format (vom Abrufskript): `id`, `titel`, `ort`, `beschreibung`,
 `start`/`ende` (ISO mit Zeit oder `YYYY-MM-DD` für ganztägig, Ende exklusiv),
-optional `hinweis`, `wichtig`, `vorab` (`[{ab, text}]`: ab dem Datum unter dem Fokustag gezeigt).
-Diese drei kommen aus dem **Gaston-Block** am Ende der Terminbeschreibung (`— Gaston —`, `📌 …`, `📌 ab JJJJ-MM-TT: …`, `❗`), den Gaston mit dem Skill `familienkalender` pflegt. Das Abrufskript wertet ihn aus und schneidet ihn aus der Beschreibung.
+optional `hinweis`, `wichtig`, `vorab` (`[{ab, text}]`: ab dem Datum unter dem Fokustag gezeigt),
+`melden` (`{an: [namen], um: "H:MM"|null}`).
+Diese kommen aus dem **Gaston-Block** am Ende der Terminbeschreibung (`— Gaston —`, `📌 …`, `📌 ab JJJJ-MM-TT: …`, `❗`, `🔔 an: jochen, maja [(7:15)]`), den Gaston mit dem Skill `familienkalender` pflegt. Das Abrufskript wertet ihn aus und schneidet ihn aus der Beschreibung.
+
+**Handy-Meldungen (🔔):** Gaston legt nur fest, *wer* gemeldet wird; *wann*
+rechnet der Server aus den Fakten, eine verschobene Abfahrt wandert also mit:
+mit `📌 Abfahrt H:MM` 15 min vor der Abfahrt (hohe Priorität), sonst 60 min vor
+Beginn, mit fester Uhrzeit `(7:15)` dann am Termintag; ganztägig ohne Uhrzeit
+gar nicht. Alle 30 s wird geprüft; eine verpasste Meldung (Neustart) wird bis
+20 min später nachgeholt, aber nie nach Terminbeginn. Pro Person höchstens 3
+Versuche, verschickte Meldungen stehen in `flur_state.json` (kein Doppelversand
+nach Neustart). Verschickt wird über den Befehl in
+`TABLETVIEWER_FLUR_MELDEN_CMD` (aufgerufen als `<cmd> <person> --titel … --text …
+--tag … [--wichtig]`, erwartet JSON mit `alle_ok`), hier `kalender.py
+benachrichtige` aus dem OpenClaw-Workspace: der kennt die Zuordnung Person →
+HA-Instanz → `notify.mobile_app_*`. Ohne die Variable bleiben Meldungen aus.
+Sie steht in `~/.config/tabletviewer/tabletviewer.env` (von
+`tabletviewer.service` gelesen, nicht im Repo).
 
 Darstellung: oben groß der Fokustag („Heute" bzw. abends „Morgen"; vergangene
 Termine verblasst, laufende grün), darunter die nächsten 6 Tage als
@@ -240,4 +257,5 @@ systemctl --user daemon-reload && systemctl --user enable --now flur-kalender.ti
 
 Env: `TABLETVIEWER_FLUR_HA_URL` (Default `http://192.168.7.2:8123/lovelace/default_view`),
 `TABLETVIEWER_FLUR_TOKEN` (optional, Bearer für die schreibenden Routen),
+`TABLETVIEWER_FLUR_MELDEN_CMD` (Handy-Meldungen, siehe oben),
 `TABLETVIEWER_TZ` (Default `Europe/Berlin`).

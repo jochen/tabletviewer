@@ -15,9 +15,12 @@ Gesamtkonzept siehe README.de.md, Abschnitt "Flur-Tablet". Kurzfassung:
 
 import asyncio
 import datetime as dt
+import hashlib
 import json
 import logging
 import os
+import re
+import shlex
 import time
 from zoneinfo import ZoneInfo
 
@@ -35,6 +38,18 @@ HA_URL = os.environ.get("TABLETVIEWER_FLUR_HA_URL",
 # Optional: wenn gesetzt, brauchen die schreibenden Flur-Routen (ausser dem
 # Tap-Hide vom Tablet selbst) "Authorization: Bearer <token>".
 FLUR_TOKEN = os.environ.get("TABLETVIEWER_FLUR_TOKEN", "")
+
+# Push aufs Handy: Befehl, der "<person> --titel T --text X [--wichtig] --tag G"
+# versteht und JSON mit "alle_ok" ausgibt (kalender.py benachrichtige im
+# OpenClaw-Workspace). Leer = keine Meldungen.
+MELDEN_CMD = shlex.split(os.environ.get("TABLETVIEWER_FLUR_MELDEN_CMD", ""))
+MELDEN_VOR_ABFAHRT = dt.timedelta(minutes=15)   # Zeit zum Fertigmachen
+MELDEN_OHNE_ABFAHRT = dt.timedelta(minutes=60)
+MELDEN_FENSTER = dt.timedelta(minutes=20)       # verpasst (Neustart) -> bis dahin nachholen
+MELDEN_VERSUCHE = 3
+MELDEN_TAKT_S = 30
+_ABFAHRT_RE = re.compile(r"Abfahrt\s+(?:um\s+)?(\d{1,2})[:.](\d{2})")
+_UM_RE = re.compile(r"^(\d{1,2}):(\d{2})$")
 
 DEFAULT_SHOW_SECONDS = 900
 # fokus "auto": ab dieser Stunde zeigt das Overlay "Morgen" statt "Heute"
@@ -64,6 +79,8 @@ def _leerer_zustand():
             "gezeigt_um": None,
             "gesehen_um": None,      # letzter Tap auf das Overlay
         },
+        # Verschickte Handy-Meldungen: "<event-id>|<epoch>" -> {titel, um, personen}
+        "meldungen": {},
     }
 
 
@@ -78,6 +95,8 @@ def _laden():
         z["events_quelle"] = data.get("events_quelle")
         if isinstance(data.get("overlay"), dict):
             z["overlay"].update(data["overlay"])
+        if isinstance(data.get("meldungen"), dict):
+            z["meldungen"] = data["meldungen"]
     except FileNotFoundError:
         pass
     except (OSError, ValueError) as e:
@@ -147,6 +166,7 @@ def _normalisiere(ev):
         "hinweis": (str(ev["hinweis"]).strip() or None) if ev.get("hinweis") else None,
         "wichtig": bool(ev.get("wichtig")),
         "vorab": _vorab(ev.get("vorab")),
+        "melden": _melden(ev.get("melden")),
         "ganztags": ganztags,
         "start": start,
         "ende": ende,
@@ -155,6 +175,17 @@ def _normalisiere(ev):
         "start_ms": start_ms,
         "ende_ms": ende_ms,
     }
+
+
+def _melden(m):
+    """{an: [..], um: 'H:MM'|None} -> geprueft oder None."""
+    if not isinstance(m, dict) or not isinstance(m.get("an"), list):
+        return None
+    an = [str(n).strip().lower() for n in m["an"] if str(n).strip()]
+    um = m.get("um")
+    if um is not None and not _UM_RE.match(str(um)):
+        um = None
+    return {"an": an, "um": um} if an else None
 
 
 def _vorab(liste):
@@ -500,6 +531,128 @@ async def handle_ws(request):
     return ws
 
 
+# --- Handy-Meldungen (🔔 im Gaston-Block) ---
+#
+# Gaston legt nur fest, WER gemeldet wird (🔔 an: jochen, maja [(9:45)]).
+# WANN rechnet der Server aus den Fakten, damit eine verschobene Abfahrt
+# automatisch mitwandert:
+#   feste Uhrzeit (9:45)        -> dann, am Termintag
+#   📌 Abfahrt H:MM im Hinweis  -> Abfahrt - 15 min
+#   sonst (mit Uhrzeit)         -> Beginn - 60 min
+#   ganztaegig ohne Uhrzeit     -> keine Meldung
+
+def melde_plan(e):
+    """-> {zeit, titel, text, wichtig} oder None."""
+    m = e["melden"]
+    if not m:
+        return None
+    ort = (" · " + e["ort"]) if e["ort"] else ""
+    if m["um"]:
+        h, mi = (int(x) for x in m["um"].split(":"))
+        zeit = dt.datetime.combine(e["erster"], dt.time(h, mi), TZ)
+        wann = "" if e["ganztags"] else " um %s Uhr" % _hm(e["start"])
+        return {"zeit": zeit, "titel": "📅 " + e["titel"],
+                "text": (wann.strip() or "heute") + ort + ("\n" + e["hinweis"] if e["hinweis"] else ""),
+                "wichtig": e["wichtig"]}
+    if e["ganztags"]:
+        return None
+    ab = _ABFAHRT_RE.search(e["hinweis"] or "")
+    if ab:
+        abfahrt = dt.datetime.combine(e["start"].date(), dt.time(int(ab.group(1)) % 24, int(ab.group(2))), TZ)
+        if abfahrt <= e["start"]:
+            return {"zeit": abfahrt - MELDEN_VOR_ABFAHRT,
+                    "titel": "🚗 Abfahrt %s" % _hm(abfahrt),
+                    "text": "%s um %s Uhr%s\n%s" % (e["titel"], _hm(e["start"]), ort, e["hinweis"]),
+                    "wichtig": True}
+    return {"zeit": e["start"] - MELDEN_OHNE_ABFAHRT, "titel": "⏰ " + e["titel"],
+            "text": "um %s Uhr%s" % (_hm(e["start"]), ort)
+                    + ("\n" + e["hinweis"] if e["hinweis"] else ""),
+            "wichtig": e["wichtig"]}
+
+
+async def _melde_an(person, plan, tag):
+    args = MELDEN_CMD + [person, "--titel", plan["titel"], "--text", plan["text"], "--tag", tag]
+    if plan["wichtig"]:
+        args.append("--wichtig")
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        out, err = await asyncio.wait_for(proc.communicate(), timeout=45)
+    except (OSError, asyncio.TimeoutError) as ex:
+        return False, str(ex) or ex.__class__.__name__
+    try:
+        res = json.loads(out.decode("utf-8", "replace"))
+    except ValueError:
+        return False, (err or out).decode("utf-8", "replace")[-300:]
+    if res.get("alle_ok"):
+        return True, None
+    return False, json.dumps(res, ensure_ascii=False)[-300:]
+
+
+async def melde_runde(jetzt=None):
+    jetzt = jetzt or dt.datetime.now(TZ)
+    status = FLUR.setdefault("meldungen", {})
+    geaendert = False
+    for e in (x for x in (_normalisiere(r) for r in FLUR["events"]) if x):
+        plan = melde_plan(e)
+        if not plan or not (plan["zeit"] <= jetzt < plan["zeit"] + MELDEN_FENSTER):
+            continue
+        if not e["ganztags"] and jetzt >= e["start"]:
+            continue
+        key = "%s|%d" % (e["id"], int(plan["zeit"].timestamp()))
+        eintrag = status.setdefault(key, {"titel": plan["titel"], "termin": e["titel"],
+                                          "um": plan["zeit"].isoformat(timespec="minutes"),
+                                          "personen": {}})
+        tag = "termin-" + hashlib.sha1(e["id"].encode("utf-8")).hexdigest()[:10]
+        for p in e["melden"]["an"]:
+            st = eintrag["personen"].setdefault(p, {"ok": False, "versuche": 0})
+            if st["ok"] or st["versuche"] >= MELDEN_VERSUCHE:
+                continue
+            ok, fehler = await _melde_an(p, plan, tag)
+            st["versuche"] += 1
+            st["ok"] = ok
+            st["fehler"] = fehler
+            st["zuletzt"] = _iso_jetzt()
+            geaendert = True
+            if ok:
+                log.info("Meldung an %s: %s (%s)", p, plan["titel"], e["titel"])
+            else:
+                log.warning("Meldung an %s fehlgeschlagen (%d/%d): %s",
+                            p, st["versuche"], MELDEN_VERSUCHE, fehler)
+    # Altes nach 3 Tagen vergessen
+    grenze = jetzt - dt.timedelta(days=3)
+    for k in [k for k, v in status.items() if _parse_zeit(v["um"]) < grenze]:
+        del status[k]
+        geaendert = True
+    if geaendert:
+        _speichern()
+
+
+async def _melde_schleife():
+    log.info("Handy-Meldungen aktiv: %s", " ".join(MELDEN_CMD))
+    while True:
+        try:
+            await melde_runde()
+        except Exception:   # die Schleife darf nie sterben
+            log.exception("Fehler in der Melde-Runde")
+        await asyncio.sleep(MELDEN_TAKT_S)
+
+
+async def handle_meldungen(request):
+    """Diagnose: was steht an, was wurde verschickt."""
+    jetzt = dt.datetime.now(TZ)
+    geplant = []
+    for e in (x for x in (_normalisiere(r) for r in FLUR["events"]) if x):
+        plan = melde_plan(e)
+        if plan and plan["zeit"] + MELDEN_FENSTER > jetzt:
+            geplant.append({"termin": e["titel"], "an": e["melden"]["an"],
+                            "um": plan["zeit"].isoformat(timespec="minutes"),
+                            "titel": plan["titel"], "text": plan["text"]})
+    geplant.sort(key=lambda g: g["um"])
+    return web.json_response({"aktiv": bool(MELDEN_CMD), "geplant": geplant,
+                              "verschickt": FLUR.get("meldungen", {})})
+
+
 async def _on_startup(app):
     # Ein Overlay mit Ablaufzeit ueberlebt einen Neustart nur bis zu dieser Zeit.
     ov = FLUR["overlay"]
@@ -511,6 +664,16 @@ async def _on_startup(app):
             _speichern()
         else:
             _plane_hide(rest)
+    if MELDEN_CMD:
+        app["flur_melden"] = asyncio.ensure_future(_melde_schleife())
+    else:
+        log.info("Handy-Meldungen aus (TABLETVIEWER_FLUR_MELDEN_CMD nicht gesetzt)")
+
+
+async def _on_cleanup(app):
+    t = app.get("flur_melden")
+    if t:
+        t.cancel()
 
 
 def setup(app):
@@ -521,4 +684,6 @@ def setup(app):
     app.router.add_post("/api/flur/hide", handle_hide)
     app.router.add_post("/api/flur/reload", handle_reload)
     app.router.add_get("/ws/flur", handle_ws)
+    app.router.add_get("/api/flur/meldungen", handle_meldungen)
     app.on_startup.append(_on_startup)
+    app.on_cleanup.append(_on_cleanup)

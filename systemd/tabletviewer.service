@@ -11,6 +11,8 @@ RestartSec=5
 # Optional: Port / Rezept-Verzeichnis ueberschreiben
 # Environment=TABLETVIEWER_PORT=8080
 # Environment=TABLETVIEWER_RECIPES_DIR=/home/pi/.openclaw/workspace/rezepte
+# Optional: weitere Einstellungen (z.B. TABLETVIEWER_FLUR_MELDEN_CMD), nicht im Repo
+EnvironmentFile=-%h/.config/tabletviewer/tabletviewer.env
 
 [Install]
 WantedBy=default.target

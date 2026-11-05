@@ -49,9 +49,11 @@ def text(comp, key):
 #   📌 <Hinweis>                    -> Hinweis unter dem Termin
 #   📌 ab JJJJ-MM-TT: <Hinweis>     -> ab dem Datum schon vorher unter "Heute"
 #   ❗ ...                          -> wichtig
+#   🔔 an: jochen, maja [(9:45)]    -> Push aufs Handy (tabletviewer verschickt)
 _BLOCK_RE = re.compile(r"(?:^|\n|<br\s*/?>|<p>|<div>)\s*(?:—|--|-)\s*Gaston\s*(?:—|--|-)\s*(?=$|\n|<br|</p>|</div>)",
                        re.I)
 _AB_RE = re.compile(r"^ab\s+(\d{4}-\d{2}-\d{2})\s*:\s*(.+)$")
+_MELDEN_RE = re.compile(r"^an\s*:\s*([^()]*?)\s*(?:\((\d{1,2}:\d{2})\))?\s*$")
 
 
 def _klartext(t):
@@ -62,17 +64,22 @@ def _klartext(t):
 
 
 def gaston_block(beschreibung):
-    """-> (beschreibung_ohne_block, hinweise[], vorab[], wichtig)"""
+    """-> (beschreibung_ohne_block, hinweise[], vorab[], wichtig, melden|None)"""
     if not beschreibung:
-        return "", [], [], False
+        return "", [], [], False, None
     m = _BLOCK_RE.search(beschreibung)
     if not m:
-        return _klartext(beschreibung).strip(), [], [], False
-    hinweise, vorab, wichtig = [], [], False
+        return _klartext(beschreibung).strip(), [], [], False, None
+    hinweise, vorab, wichtig, melden = [], [], False, None
     for z in _klartext(beschreibung[m.start():]).split("\n"):
         z = z.strip()
         if z.startswith("❗"):
             wichtig = True
+        elif z.startswith("🔔"):
+            mm = _MELDEN_RE.match(z[len("🔔"):].strip())
+            an = [n.strip().lower() for n in mm.group(1).split(",") if n.strip()] if mm else []
+            if an:
+                melden = {"an": an, "um": mm.group(2)}
         elif z.startswith("📌"):
             inhalt = z[len("📌"):].strip()
             mab = _AB_RE.match(inhalt)
@@ -80,7 +87,7 @@ def gaston_block(beschreibung):
                 vorab.append({"ab": mab.group(1), "text": mab.group(2).strip()})
             elif inhalt:
                 hinweise.append(inhalt)
-    return _klartext(beschreibung[:m.start()]).strip(), hinweise, vorab, wichtig
+    return _klartext(beschreibung[:m.start()]).strip(), hinweise, vorab, wichtig, melden
 
 
 def lade_ics(url):
@@ -106,7 +113,7 @@ def termine(ics_bytes, tage):
             ende = start + ev.get("DURATION").dt
         else:
             ende = start
-        beschreibung, hinweise, vorab, wichtig = gaston_block(text(ev, "DESCRIPTION"))
+        beschreibung, hinweise, vorab, wichtig, melden = gaston_block(text(ev, "DESCRIPTION"))
         out.append({
             # uid + Beginn: eindeutig auch fuer einzelne Serien-Vorkommen
             "id": "%s@%s" % (text(ev, "UID"), iso(start)),
@@ -116,6 +123,7 @@ def termine(ics_bytes, tage):
             "hinweis": " · ".join(hinweise) or None,
             "vorab": vorab,
             "wichtig": wichtig,
+            "melden": melden,
             "start": iso(start),
             "ende": iso(ende),
         })
