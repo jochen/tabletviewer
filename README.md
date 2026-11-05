@@ -207,6 +207,7 @@ event description (see below).
 | `GET /api/flur/state` | state including the ready-made calendar; polling fallback. `seiten: {ws, poll_vor_s, aktiv}` tells whether the tablet is showing `/flur` right now (health check for Node-RED; the page itself polls with `?von=seite`) |
 | `WS /ws/flur` | push to the hallway page |
 | `POST /api/flur/events` | events from the fetch script `{"events":[…], "stand":ISO, "quelle":…}` |
+| `GET /flur/kamera/live.mjpg`, `/flur/kamera/live.jpg`, `/flur/kamera/gesicht.jpg` | door camera (see below) |
 | `POST /api/flur/show` | `{"view":"kalender", "fokus":"heute"\|"morgen"\|"auto", "seconds":900, "skip_if_seen_within_s":0}` → `{"shown":bool,…}`; `seconds:0` = until tapped; `fokus:"auto"` = "morgen" from 18:00 (`TABLETVIEWER_FLUR_MORGEN_AB`), also used by the "Termine" button |
 | `POST /api/flur/hide` | overlay off; `{"grund":"tap"}` comes from the tablet and sets `gesehen_um` |
 | `POST /api/flur/reload` | `{"ziel":"seite"\|"ha"}` reloads the page or just the HA iframe |
@@ -241,6 +242,27 @@ tomorrow in the evening; past events faded, running ones green), below it the
 next 6 days as a week strip, and at the bottom "Demnächst" (upcoming) up to
 6 weeks ahead (max. 10). If the calendar data is older than 3 h, this is shown
 in orange.
+
+**Door camera** (`kamera.py`): `POST /api/flur/show {"view":"kamera","grund":"klingel"}`
+(Node-RED on a doorbell ring; default 240 s, until tapped; the "Kamera" button
+on the tablet sends `grund:"hand"`). Live picture on the left; on the right a
+title ("Es klingelt" = someone is ringing, or "Eingang" = entrance), the clock
+and the last detected face. Tapping the camera does not set `gesehen_um`
+(that only counts for the calendar). The server reads the live picture only
+while someone is watching, from mjpg-streamer (`TABLETVIEWER_KAMERA_URL`,
+default `http://192.168.7.61:8080/?action=stream`), rotates it
+(`TABLETVIEWER_KAMERA_DREHUNG`, 270) and scales it to 800 px height
+(`…_HOEHE`), at most 5 fps (`…_FPS`), so the old WebView neither rotates nor
+decodes 1280×960. `?kamera=snap` in the page URL switches to single frames if a
+device cannot show MJPEG. The face comes via MQTT (`TABLETVIEWER_MQTT_HOST`
+192.168.7.76, topic `camera/face`).
+
+**Device id:** the tablet loads `/flur?geraet=fire10`. The page passes this to
+the WebSocket and the poll, and `/api/flur/state` reports under
+`seiten.geraete.fire10` (`ws`, `poll_vor_s`, `aktiv`, `ip`) whether exactly
+this device is connected. Browser tabs without `geraet` only count in the
+total. Node-RED checks `seiten.geraete.fire10.aktiv` and otherwise re-sends
+the URL.
 
 **Calendar fetch:** `tools/flur_kalender.py` (venv `.venv` with `icalendar`,
 `recurring-ical-events`) reads the secret iCal address from

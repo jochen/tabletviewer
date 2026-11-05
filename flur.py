@@ -26,6 +26,8 @@ from zoneinfo import ZoneInfo
 
 from aiohttp import web, WSMsgType
 
+import kamera
+
 log = logging.getLogger("tabletviewer.flur")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -55,6 +57,7 @@ _ABFAHRT_RE = re.compile(r"Abfahrt\s+(?:um\s+)?(\d{1,2})[:.](\d{2})")
 _UM_RE = re.compile(r"^(\d{1,2}):(\d{2})$")
 
 DEFAULT_SHOW_SECONDS = 900
+KAMERA_SHOW_SECONDS = 240     # Klingel: bis Tap, spaetestens nach 4 min
 # fokus "auto": ab dieser Stunde zeigt das Overlay "Morgen" statt "Heute"
 MORGEN_AB_STUNDE = int(os.environ.get("TABLETVIEWER_FLUR_MORGEN_AB", "18"))
 WOCHE_TAGE = 6          # Tage nach dem Fokustag in der Wochenleiste
@@ -78,6 +81,7 @@ def _leerer_zustand():
         "overlay": {
             "view": None,            # None | "kalender"
             "fokus": "heute",        # "heute" | "morgen"
+            "grund": None,           # bei view "kamera": "klingel" | "hand" | ...
             "bis": None,             # Epoch-Sekunden oder None (= bis Tap)
             "gezeigt_um": None,
             "gesehen_um": None,      # letzter Tap auf das Overlay
@@ -118,13 +122,49 @@ def _speichern():
 
 
 FLUR = _laden()
-FLUR_WS = set()
+FLUR_WS = {}             # ws -> {"geraet": str|None, "ip": str}
 _hide_handle = None
 # Letzter Poll einer Flur-SEITE (GET /api/flur/state?von=seite). Faellt die
 # WebSocket-Verbindung auf dem Tablet aus, pollt die Seite - dann zaehlt sie
 # trotzdem als aktiv. Node-RED fragt ohne ?von=seite und zaehlt nicht mit.
 _letzter_seiten_poll = 0.0
 SEITE_POLL_FRISCH_S = 15
+# Je Geraet (Seite mit ?geraet=fire10): letzter Poll (monotonic) und IP, damit
+# Node-RED das echte Tablet von Browser-Tabs am PC unterscheiden kann.
+_geraete_poll = {}
+_GERAET_RE = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
+
+
+def _geraet(request):
+    g = request.query.get("geraet", "")
+    return g if _GERAET_RE.match(g) else None
+
+
+def _seiten():
+    jetzt = time.monotonic()
+    poll_vor = round(jetzt - _letzter_seiten_poll) if _letzter_seiten_poll else None
+    geraete = {}
+    for info in FLUR_WS.values():
+        if info["geraet"]:
+            g = geraete.setdefault(info["geraet"], {"ws": 0, "poll_vor_s": None, "ips": []})
+            g["ws"] += 1
+            if info["ip"] not in g["ips"]:
+                g["ips"].append(info["ip"])
+    for name, (t, ip) in _geraete_poll.items():
+        g = geraete.setdefault(name, {"ws": 0, "poll_vor_s": None, "ips": []})
+        g["poll_vor_s"] = round(jetzt - t)
+        if ip not in g["ips"]:
+            g["ips"].append(ip)
+    for g in geraete.values():
+        g["aktiv"] = g["ws"] > 0 or (g["poll_vor_s"] is not None
+                                     and g["poll_vor_s"] <= SEITE_POLL_FRISCH_S)
+        g["ip"] = g["ips"][0] if g["ips"] else None
+    return {
+        "ws": len(FLUR_WS),
+        "poll_vor_s": poll_vor,
+        "aktiv": len(FLUR_WS) > 0 or (poll_vor is not None and poll_vor <= SEITE_POLL_FRISCH_S),
+        "geraete": geraete,
+    }
 
 
 # --- Termine aufbereiten ---
@@ -336,25 +376,21 @@ def payload():
     rest = None
     if ov["view"] and ov["bis"]:
         rest = max(0, round(ov["bis"] - time.time()))
-    poll_vor = (round(time.monotonic() - _letzter_seiten_poll)
-                if _letzter_seiten_poll else None)
     return {
         "type": "flur",
         "jetzt_ms": int(time.time() * 1000),
         # Fuer den Gesundheitscheck (Node-RED): zeigt das Tablet /flur gerade?
-        "seiten": {
-            "ws": len(FLUR_WS),
-            "poll_vor_s": poll_vor,
-            "aktiv": len(FLUR_WS) > 0 or (poll_vor is not None and poll_vor <= SEITE_POLL_FRISCH_S),
-        },
+        "seiten": _seiten(),
         "ha_url": HA_URL,
         "overlay": {
             "view": ov["view"],
+            "grund": ov.get("grund"),
             "rest_s": rest,
             "gezeigt_um": ov["gezeigt_um"],
             "gesehen_um": ov["gesehen_um"],
         },
         "kalender": baue_kalender(ov.get("fokus") or "heute"),
+        "kamera": kamera.status(),
     }
 
 
@@ -366,7 +402,7 @@ async def broadcast(obj=None):
             await ws.send_str(text)
             n += 1
         except (ConnectionResetError, RuntimeError):
-            FLUR_WS.discard(ws)
+            FLUR_WS.pop(ws, None)
     return n
 
 
@@ -396,7 +432,9 @@ async def _verstecken(grund):
     war = ov["view"]
     ov["view"] = None
     ov["bis"] = None
-    if grund == "tap":
+    # "gesehen" zaehlt nur fuer den Kalender (Node-RED ueberspringt sonst den
+    # Morgenkalender, nur weil jemand die Klingel weggetippt hat).
+    if grund == "tap" and war == "kalender":
         ov["gesehen_um"] = _iso_jetzt()
     _speichern()
     if war:
@@ -428,6 +466,9 @@ async def handle_state(request):
     global _letzter_seiten_poll
     if request.query.get("von") == "seite":
         _letzter_seiten_poll = time.monotonic()
+        g = _geraet(request)
+        if g:
+            _geraete_poll[g] = (time.monotonic(), request.remote)
     return web.json_response(payload())
 
 
@@ -459,21 +500,22 @@ async def handle_show(request):
     if data is None:
         return web.json_response({"error": "invalid JSON"}, status=400)
     view = data.get("view", "kalender")
-    if view != "kalender":
-        return web.json_response({"error": "view must be 'kalender'"}, status=400)
+    if view not in ("kalender", "kamera"):
+        return web.json_response({"error": "view must be 'kalender' or 'kamera'"}, status=400)
     fokus = data.get("fokus", "heute")
     if fokus == "auto":
         fokus = "morgen" if dt.datetime.now(TZ).hour >= MORGEN_AB_STUNDE else "heute"
     if fokus not in ("heute", "morgen"):
         return web.json_response({"error": "fokus must be 'heute', 'morgen' or 'auto'"}, status=400)
     try:
-        sekunden = int(data.get("seconds", DEFAULT_SHOW_SECONDS))
+        sekunden = int(data.get("seconds", DEFAULT_SHOW_SECONDS if view == "kalender"
+                                else KAMERA_SHOW_SECONDS))
         skip = int(data.get("skip_if_seen_within_s") or 0)
     except (TypeError, ValueError):
         return web.json_response({"error": "seconds must be int"}, status=400)
 
     ov = FLUR["overlay"]
-    if skip and ov["gesehen_um"]:
+    if skip and view == "kalender" and ov["gesehen_um"]:
         try:
             alter = (dt.datetime.now(TZ) - _parse_zeit(ov["gesehen_um"])).total_seconds()
         except (ValueError, TypeError):
@@ -483,7 +525,9 @@ async def handle_show(request):
                                       "gesehen_um": ov["gesehen_um"]})
 
     ov["view"] = view
-    ov["fokus"] = fokus
+    ov["grund"] = (str(data.get("grund") or "")[:20] or None) if view == "kamera" else None
+    if view == "kalender":
+        ov["fokus"] = fokus
     ov["bis"] = time.time() + sekunden if sekunden > 0 else None
     ov["gezeigt_um"] = _iso_jetzt()
     _speichern()
@@ -519,8 +563,10 @@ async def handle_reload(request):
 async def handle_ws(request):
     ws = web.WebSocketResponse(heartbeat=30)
     await ws.prepare(request)
-    FLUR_WS.add(ws)
-    log.info("Flur-WS verbunden (%d gesamt)", len(FLUR_WS))
+    info = {"geraet": _geraet(request), "ip": request.remote}
+    FLUR_WS[ws] = info
+    log.info("Flur-WS verbunden: %s von %s (%d gesamt)", info["geraet"] or "ohne geraet",
+             info["ip"], len(FLUR_WS))
     try:
         await ws.send_str(json.dumps(payload(), ensure_ascii=False))
         async for msg in ws:
@@ -529,8 +575,9 @@ async def handle_ws(request):
             if msg.type == WSMsgType.TEXT and msg.data == "ping":
                 await ws.send_str('{"type":"pong"}')
     finally:
-        FLUR_WS.discard(ws)
-        log.info("Flur-WS getrennt (%d verbleibend)", len(FLUR_WS))
+        FLUR_WS.pop(ws, None)
+        log.info("Flur-WS getrennt: %s von %s (%d verbleibend)", info["geraet"] or "ohne geraet",
+                 info["ip"], len(FLUR_WS))
     return ws
 
 
@@ -711,3 +758,4 @@ def setup(app):
     app.router.add_get("/api/flur/meldungen", handle_meldungen)
     app.on_startup.append(_on_startup)
     app.on_cleanup.append(_on_cleanup)
+    kamera.setup(app)

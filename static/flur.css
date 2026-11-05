@@ -283,12 +283,12 @@ html, body {
 
 /* --- Knopf ueber HA --- */
 
-#kal-knopf {
+#kal-knopf, #kam-knopf {
   position: absolute;
   top: 0;
   left: 50%;
   width: 140px;
-  margin-left: -70px;
+  margin-left: -144px;
   z-index: 5;
   padding: 8px 0;
   text-align: center;
@@ -298,4 +298,61 @@ html, body {
   opacity: 0.75;
   border-bottom-left-radius: 12px;
   border-bottom-right-radius: 12px;
+}
+
+#kam-knopf { margin-left: 4px; }
+
+/* --- Tuerkamera --- */
+
+#kam {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 11;
+  background: #000;
+  color: #f2f2f2;
+}
+
+/* Bild kommt schon gedreht und auf 800 px Hoehe vom Server (600x800) */
+#kam-live-box {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 600px;
+  height: 100%;
+  background: #000;
+  text-align: center;
+}
+#kam-live { height: 100%; }
+
+#kam-seite {
+  position: absolute;
+  top: 0;
+  left: 600px;
+  right: 0;
+  height: 100%;
+  padding: 24px 32px;
+  background: #111a2c;
+}
+#kam-titel {
+  font-size: 60px;
+  line-height: 70px;
+  font-weight: bold;
+  color: #ffd166;
+}
+#kam-uhr {
+  font-size: 40px;
+  color: #d8dce6;
+  padding: 6px 0 18px;
+}
+#kam-gesicht-box { height: 520px; }
+#kam-gesicht { max-height: 470px; max-width: 100%; border: 2px solid #34405a; }
+#kam-gesicht-info { font-size: 26px; color: #8792a8; padding-top: 6px; }
+#kam-hinweis {
+  position: absolute;
+  bottom: 18px;
+  font-size: 22px;
+  color: #8792a8;
 }

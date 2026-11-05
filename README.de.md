@@ -212,6 +212,7 @@ Gaston-Block der Terminbeschreibung (siehe unten).
 | `GET /api/flur/state` | Zustand inkl. fertig aufbereitetem Kalender; Polling-Fallback. `seiten: {ws, poll_vor_s, aktiv}` sagt, ob das Tablet `/flur` gerade zeigt (Gesundheitscheck für Node-RED; die Seite selbst pollt mit `?von=seite`) |
 | `WS /ws/flur` | Push an die Flur-Seite |
 | `POST /api/flur/events` | Termine vom Abrufskript `{"events":[…], "stand":ISO, "quelle":…}` |
+| `GET /flur/kamera/live.mjpg`, `/flur/kamera/live.jpg`, `/flur/kamera/gesicht.jpg` | Türkamera (siehe unten) |
 | `POST /api/flur/show` | `{"view":"kalender", "fokus":"heute"\|"morgen"\|"auto", "seconds":900, "skip_if_seen_within_s":0}` → `{"shown":bool,…}`; `seconds:0` = bis Tap; `fokus:"auto"` = ab 18 Uhr „morgen" (`TABLETVIEWER_FLUR_MORGEN_AB`), so arbeitet auch der Knopf „Termine" |
 | `POST /api/flur/hide` | Overlay aus; `{"grund":"tap"}` kommt vom Tablet und setzt `gesehen_um` |
 | `POST /api/flur/reload` | `{"ziel":"seite"\|"ha"}` lädt die Seite bzw. nur das HA-iframe neu |
@@ -245,6 +246,25 @@ Darstellung: oben groß der Fokustag („Heute" bzw. abends „Morgen"; vergange
 Termine verblasst, laufende grün), darunter die nächsten 6 Tage als
 Wochenleiste, unten „Demnächst" bis 6 Wochen (max. 10). Ist der Kalenderstand
 älter als 3 h, steht das sichtbar in Orange da.
+
+**Türkamera** (`kamera.py`): `POST /api/flur/show {"view":"kamera","grund":"klingel"}`
+(Node-RED bei Klingel; Standard 240 s, bis Tap; der Knopf „Kamera" am Tablet
+schickt `grund:"hand"`). Links das Livebild, rechts Titel („Es klingelt" bzw.
+„Eingang"), Uhr und das letzte erkannte Gesicht. Ein Tap auf die Kamera setzt
+`gesehen_um` nicht (das gilt nur für den Kalender). Das Livebild liest der
+Server nur, solange jemand zuschaut, vom mjpg-streamer
+(`TABLETVIEWER_KAMERA_URL`, Default `http://192.168.7.61:8080/?action=stream`),
+dreht es (`TABLETVIEWER_KAMERA_DREHUNG`, 270) und verkleinert auf 800 px Höhe
+(`…_HOEHE`), max. 5 fps (`…_FPS`). Die alte WebView muss so weder drehen noch
+1280×960 dekodieren. `?kamera=snap` in der Seiten-URL schaltet auf Einzelbilder
+um, falls ein Gerät kein MJPEG kann. Das Gesicht kommt per MQTT
+(`TABLETVIEWER_MQTT_HOST` 192.168.7.76, Topic `camera/face`).
+
+**Gerätekennung:** Das Tablet lädt `/flur?geraet=fire10`. Die Seite gibt das an
+WebSocket und Poll weiter, und `/api/flur/state` meldet unter
+`seiten.geraete.fire10` (`ws`, `poll_vor_s`, `aktiv`, `ip`), ob genau dieses
+Gerät verbunden ist. Browser-Tabs ohne `geraet` zählen nur in der Gesamtzahl.
+Node-RED prüft `seiten.geraete.fire10.aktiv` und schickt sonst die URL neu.
 
 **Kalenderabruf:** `tools/flur_kalender.py` (venv `.venv` mit `icalendar`,
 `recurring-ical-events`) liest die geheime iCal-Adresse aus

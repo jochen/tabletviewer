@@ -25,6 +25,15 @@
   var hideTimer = null;
   var haUrl = null;
   var lokalVersteckt = null;  // gezeigt_um, das per Tap schon weggetippt wurde
+  var LEER_GIF = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+  // Livebild: "mjpeg" (ein Stream) oder "snap" (Einzelbilder im Kreis), per ?kamera=snap
+  var kamModus = /[?&]kamera=snap/.test(location.search) ? "snap" : "mjpeg";
+  var kamLaeuft = false;
+  var kamRunde = 0;
+  var gesichtV = null;
+  // Kennung fuer den Gesundheitscheck (WallPanel-URL .../flur?geraet=fire10)
+  var gm = /[?&]geraet=([A-Za-z0-9_-]{1,32})/.exec(location.search);
+  var geraetQ = gm ? "&geraet=" + gm[1] : "";
 
   function byId(id) {
     return document.getElementById(id);
@@ -45,7 +54,7 @@
 
   function xhrGetState() {
     var xhr = new XMLHttpRequest();
-    xhr.open("GET", "/api/flur/state?von=seite", true);
+    xhr.open("GET", "/api/flur/state?von=seite" + geraetQ, true);
     xhr.onreadystatechange = function () {
       if (xhr.readyState === 4 && xhr.status === 200) {
         try {
@@ -79,7 +88,7 @@
   }
 
   function connectWs() {
-    var url = (location.protocol === "https:" ? "wss:" : "ws:") + "//" + location.host + "/ws/flur";
+    var url = (location.protocol === "https:" ? "wss:" : "ws:") + "//" + location.host + "/ws/flur" + (geraetQ ? "?" + geraetQ.substring(1) : "");
     var sock;
     try {
       sock = new WebSocket(url);
@@ -189,8 +198,17 @@
     // Ein frisch weggetippter Zustand bleibt weg, auch wenn ein Poll noch den
     // alten Stand bringt; ein NEUES show (anderes gezeigt_um) zeigt wieder.
     var sichtbar = !!ov.view && ov.rest_s !== 0 && lokalVersteckt !== ov.gezeigt_um;
-    if (sichtbar) {
+    if (sichtbar && ov.view === "kamera") {
+      renderKamera(d.kamera || {}, ov.grund);
+      byId("kal").style.display = "none";
+      byId("kam").style.display = "block";
+      liveStart();
+      zeigen(ov.rest_s);
+    } else if (sichtbar) {
+      liveStop();
+      byId("kam").style.display = "none";
       renderKalender(d.kalender);
+      byId("kal").style.display = "block";
       zeigen(ov.rest_s);
     } else {
       verbergen();
@@ -198,8 +216,8 @@
   }
 
   function zeigen(restS) {
-    byId("kal").style.display = "block";
     byId("kal-knopf").style.display = "none";
+    byId("kam-knopf").style.display = "none";
     if (hideTimer) {
       clearTimeout(hideTimer);
       hideTimer = null;
@@ -217,8 +235,83 @@
       clearTimeout(hideTimer);
       hideTimer = null;
     }
+    liveStop();
     byId("kal").style.display = "none";
+    byId("kam").style.display = "none";
     byId("kal-knopf").style.display = "block";
+    byId("kam-knopf").style.display = "block";
+  }
+
+  // --- Kamera ---
+
+  function liveStart() {
+    if (kamLaeuft) {
+      return;
+    }
+    kamLaeuft = true;
+    kamRunde++;
+    var img = byId("kam-live");
+    if (kamModus === "mjpeg") {
+      img.onerror = function () {
+        // Stream abgebrochen: neu verbinden, solange die Kamera sichtbar ist
+        var r = kamRunde;
+        setTimeout(function () {
+          if (kamLaeuft && r === kamRunde) {
+            img.src = "/flur/kamera/live.mjpg?t=" + new Date().getTime();
+          }
+        }, 2000);
+      };
+      img.src = "/flur/kamera/live.mjpg?t=" + new Date().getTime();
+    } else {
+      naechstesBild(kamRunde);
+    }
+  }
+
+  function naechstesBild(runde) {
+    var img = byId("kam-live");
+    if (!kamLaeuft || runde !== kamRunde) {
+      return;
+    }
+    img.onload = function () {
+      setTimeout(function () { naechstesBild(runde); }, 150);
+    };
+    img.onerror = function () {
+      setTimeout(function () { naechstesBild(runde); }, 1500);
+    };
+    img.src = "/flur/kamera/live.jpg?t=" + new Date().getTime();
+  }
+
+  function liveStop() {
+    if (!kamLaeuft) {
+      return;
+    }
+    kamLaeuft = false;
+    kamRunde++;
+    var img = byId("kam-live");
+    img.onload = img.onerror = null;
+    img.src = LEER_GIF;   // beendet auch den MJPEG-Stream
+  }
+
+  function renderKamera(k, grund) {
+    byId("kam-titel").innerHTML = grund === "klingel" ? "Es klingelt" : "Eingang";
+    var bild = byId("kam-gesicht");
+    var info = byId("kam-gesicht-info");
+    if (!k.gesicht) {
+      bild.style.display = "none";
+      info.innerHTML = "";
+      return;
+    }
+    if (gesichtV !== k.gesicht_v) {
+      gesichtV = k.gesicht_v;
+      bild.src = "/flur/kamera/gesicht.jpg?v=" + k.gesicht_v;
+    }
+    bild.style.display = "inline";
+    if (k.gesicht_um_ms) {
+      var d = new Date(k.gesicht_um_ms);
+      info.innerHTML = "Zuletzt erkannt um " + d.getHours() + ":" + zwei(d.getMinutes());
+    } else {
+      info.innerHTML = "Zuletzt erkanntes Gesicht";
+    }
   }
 
   function onKalTap(e) {
@@ -227,6 +320,15 @@
     }
     verbergen();
     xhrPost("/api/flur/hide", { grund: "tap" });
+    if (e && e.preventDefault) {
+      e.preventDefault();
+    }
+    return false;
+  }
+
+  function onKamKnopfTap(e) {
+    lokalVersteckt = null;
+    xhrPost("/api/flur/show", { view: "kamera", grund: "hand", seconds: 240 });
     if (e && e.preventDefault) {
       e.preventDefault();
     }
@@ -377,10 +479,14 @@
 
   // Uhr und laufende/vergangene Termine, jede Sekunde (nur bei sichtbarem Overlay).
   function tick() {
+    var j = jetzt();
+    if (byId("kam").style.display !== "none") {
+      var k = new Date(j);
+      byId("kam-uhr").innerHTML = k.getHours() + ":" + zwei(k.getMinutes()) + ":" + zwei(k.getSeconds());
+    }
     if (byId("kal").style.display === "none") {
       return;
     }
-    var j = jetzt();
     // Die Serverzeit ist UTC-basiert; die Anzeige-Zeitzone kennt das Tablet
     // selbst (Android). Fuer die Uhr reicht das.
     var d = new Date(j);
@@ -409,7 +515,9 @@
   function init() {
     var kal = byId("kal");
     kal.onclick = onKalTap;
+    byId("kam").onclick = onKalTap;
     byId("kal-knopf").onclick = onKnopfTap;
+    byId("kam-knopf").onclick = onKamKnopfTap;
     // Vorab aus der URL, damit HA schon laedt, bevor der Server antwortet.
     var m = /[?&]ha=([^&]*)/.exec(location.search);
     if (m) {

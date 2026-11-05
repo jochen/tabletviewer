@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
 <title>Flur</title>
-<link rel="stylesheet" href="/flur.css?v=5">
+<link rel="stylesheet" href="/flur.css?v=6">
 </head>
 <body>
 
@@ -29,10 +29,26 @@
   <div id="demnaechst"></div>
 </div>
 
-<!-- Kleiner Knopf oben mittig (dort ist die HA-Kopfzeile fast leer), um den
-     Kalender ueber HA von Hand aufzurufen. -->
-<div id="kal-knopf" style="display:none;">Termine</div>
+<!-- Tuerkamera (Klingel oder von Hand). Livebild links, rechts Kopf und das
+     letzte erkannte Gesicht. Ein Tap blendet aus. -->
+<div id="kam" style="display:none;">
+  <div id="kam-live-box"><img id="kam-live" alt=""></div>
+  <div id="kam-seite">
+    <div id="kam-titel">Eingang</div>
+    <div id="kam-uhr"></div>
+    <div id="kam-gesicht-box">
+      <img id="kam-gesicht" alt="">
+      <div id="kam-gesicht-info"></div>
+    </div>
+    <div id="kam-hinweis">Antippen &rarr; Home Assistant</div>
+  </div>
+</div>
 
-<script src="/flur.js?v=6"></script>
+<!-- Kleine Knoepfe oben mittig (dort ist die HA-Kopfzeile fast leer), um
+     Kalender bzw. Kamera ueber HA von Hand aufzurufen. -->
+<div id="kal-knopf" style="display:none;">Termine</div>
+<div id="kam-knopf" style="display:none;">Kamera</div>
+
+<script src="/flur.js?v=8"></script>
 </body>
 </html>
