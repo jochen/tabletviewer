@@ -1,0 +1,7 @@
+.gradle/
+build/
+local.properties
+# Release-Signatur: NIE committen (Verlust = keine Updates mehr ohne Deinstallation)
+keystore.properties
+*.jks
+*.keystore

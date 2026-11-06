@@ -282,3 +282,10 @@ Env: `TABLETVIEWER_FLUR_HA_URL` (Default `http://192.168.7.2:8123/lovelace/defau
 `TABLETVIEWER_FLUR_TOKEN` (optional, Bearer für die schreibenden Routen),
 `TABLETVIEWER_FLUR_MELDEN_CMD`, `TABLETVIEWER_FLUR_RUECKFALL_CMD` (Handy-Meldungen, siehe oben),
 `TABLETVIEWER_TZ` (Default `Europe/Berlin`).
+
+## Tablet-Agent (Android-App)
+
+Unter `android/` liegt eine eigene kleine App für die Wand-Tablets (Android 5.1):
+Status und Fernsteuerung per MQTT (`tablet/<geraet>/…`), Bildschirmfotos, Wecken,
+Helligkeit, Apps starten. Der Server liefert sie unter `/app/tablet-agent.apk` aus.
+Details: [android/README.md](android/README.md).

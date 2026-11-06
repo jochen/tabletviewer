@@ -747,7 +747,23 @@ async def _on_cleanup(app):
         t.cancel()
 
 
+APP_DIST = os.path.join(BASE_DIR, "android", "dist")
+
+
+async def handle_app(request):
+    """Tablet-Agent zum Installieren/Aktualisieren (android/baue.sh legt ihn ab)."""
+    name = request.match_info["name"]
+    if name not in ("tablet-agent.apk", "tablet-agent.json"):
+        raise web.HTTPNotFound()
+    pfad = os.path.join(APP_DIST, name)
+    if not os.path.isfile(pfad):
+        raise web.HTTPNotFound(text="noch nicht gebaut")
+    typ = "application/vnd.android.package-archive" if name.endswith(".apk") else "application/json"
+    return web.FileResponse(pfad, headers={"Content-Type": typ, "Cache-Control": "no-cache"})
+
+
 def setup(app):
+    app.router.add_get("/app/{name}", handle_app)
     app.router.add_get("/flur", handle_page)
     app.router.add_get("/api/flur/state", handle_state)
     app.router.add_post("/api/flur/events", handle_events)
