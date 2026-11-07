@@ -6,6 +6,7 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
@@ -28,6 +29,16 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Kiosk: Vollbild-WebView mit der Flur-Seite (Ersatz fuer WallPanel) -->
+        <activity
+            android:name=".KioskActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:taskAffinity="de.zerties.tabletagent.kiosk"
+            android:excludeFromRecents="false"
+            android:configChanges="orientation|screenSize|screenLayout|keyboard|keyboardHidden|navigation"
+            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" />
 
         <!-- Holt einmal die Erlaubnis fuer Bildschirmfotos (MediaProjection) -->
         <activity

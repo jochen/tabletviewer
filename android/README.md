@@ -2,7 +2,8 @@
 
 Kleine Open-Source-App für die Wand-Tablets (Fire OS 5 = Android 5.1, minSdk 21).
 Läuft dauerhaft im Hintergrund, startet beim Booten und ist per MQTT fernsteuerbar.
-Erster Schritt hin zum Ersatz von WallPanel. Das Overlay bleibt beim tabletviewer.
+Seit 0.2 ersetzt sie WallPanel: ein Vollbild-Kiosk mit der Flur-Seite.
+Das Overlay bleibt beim tabletviewer.
 
 ## MQTT (Basis `tablet/<geraet>`)
 
@@ -13,6 +14,8 @@ Erster Schritt hin zum Ersatz von WallPanel. Das Overlay bleibt beim tabletviewe
 | `befehl` | → Tablet | JSON-Befehl, mehrere Schlüssel erlaubt, optional `"id"` |
 | `antwort` | Tablet → | `{"id", "ok", "ergebnis", "fehler"}` |
 | `bildschirmfoto` | Tablet → | JPEG |
+| `konsole` | Tablet → | Fehler/Warnungen der Kiosk-Seite (auch aus dem HA-iframe), max. 30/min |
+| `wallpanel/<geraet>/command` | → Tablet | WallPanel-Befehle (nur mit `wallpanel_topic`) |
 
 Befehle (die WallPanel-Namen `brightness`, `wake`/`wakeTime`, `volume`, `speak` gehen auch):
 
@@ -27,7 +30,38 @@ Befehle (die WallPanel-Namen `brightness`, `wake`/`wakeTime`, `volume`, `speak` 
 {"apps": true}
 {"bildschirm_aus_ms": 600000}
 {"status": true}
+{"autostart": true}
+{"aktualisieren": true}
 ```
+
+## Kiosk
+
+```json
+{"kiosk": {"aktiv": true, "start_url": "", "wallpanel_topic": true,
+           "wecken_helligkeit": 200, "zurueck_s": 120, "immer_an": true}}
+{"vorne": true}
+{"laden": "http://…"}
+{"neu_laden": true}
+{"cache_leeren": true}
+{"js": "document.title"}
+```
+
+- `start_url` leer = `http://192.168.7.23:8080/flur?geraet=<geraet>`.
+- `wallpanel_topic`: hört zusätzlich auf `wallpanel/<geraet>/command`.
+  - Unverändert: `brightness`, `wake`/`wakeTime`, `speak`, `volume`.
+  - Übersetzt: `url` wird zu `laden`, `reload` zu `neu_laden`, `clearCache` zu
+    `cache_leeren`, `eval` zu `js`, `relaunch` zu `vorne` + `neu_laden`.
+  - Node-RED muss deshalb nichts ändern.
+- `wecken_helligkeit`: Ist der Bildschirm beim Wecken dunkler, wird er für die
+  Weckzeit so hell. Danach gilt der zuletzt per `brightness` gesetzte Wert. Die
+  Zeitschaltuhr dunkelt während des Weckens nicht ab.
+- `immer_an`: Der Bildschirm bleibt an. Geht er doch aus, weckt ihn der Agent
+  innerhalb von 15 s und holt den Kiosk nach vorne.
+- `zurueck_s`: Steht der Fire-Startbildschirm so lange vorne, kommt der Kiosk
+  zurück. Einstellungen, Silk usw. bleiben unangetastet.
+- Admin am Tablet: fünfmal schnell in die linke obere Ecke tippen. Das öffnet die
+  Einstellungen, dort gibt es „Zum Kiosk“.
+- Der Kiosk hat einen eigenen WebView-Speicher, HA muss einmal angemeldet werden.
 
 Beispiel:
 
@@ -66,6 +100,15 @@ Unbedingt sichern: Ohne diesen Schlüssel lassen sich Updates nicht mehr über
 die installierte App spielen, dann hilft nur Deinstallieren.
 
 ## Grenzen von Android 5.1 ohne Root
+
+- **Sperrbildschirm mit Werbung** (Fire „Spezialangebote“): Er lässt sich von
+  einer App nicht wegschalten (`disableKeyguard` und `FLAG_DISMISS_KEYGUARD`
+  helfen nicht). Er kommt nur, wenn der Bildschirm aus war, also praktisch nur
+  nach einem Neustart: einmal wischen. Abhilfe: die Spezialangebote im
+  Amazon-Konto entfernen oder einmal per Kabel
+  `adb shell pm disable-user com.amazon.kindle.kso`.
+- Die WebView ist Chrome 59 (Amazon WebView, nicht aktualisierbar). HA liefert
+  `frontend_es5`, hat aber Fehler (z. B. `scrollTo` mit Optionen). Siehe `konsole`.
 
 - Die Vordergrund-App kommt aus `/proc` (bis Android 6 ohne Berechtigung lesbar).
   Den Nutzungsdatenzugriff versteckt Fire OS, er wird nicht gebraucht.

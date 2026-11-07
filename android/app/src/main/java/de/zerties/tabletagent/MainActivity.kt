@@ -61,6 +61,10 @@ class MainActivity : Activity() {
             }
         })
         l.addView(Button(this).apply {
+            text = "Zum Kiosk"
+            setOnClickListener { KioskActivity.nachVorne(this@MainActivity) }
+        })
+        l.addView(Button(this).apply {
             text = "Bildschirmfotos erlauben"
             setOnClickListener { startActivity(Intent(this@MainActivity, ProjektionActivity::class.java)) }
         })
@@ -73,6 +77,7 @@ class MainActivity : Activity() {
         override fun run() {
             info.text = "Zustand: ${AgentService.letzterZustand}\n" +
                     "Topics: ${if (k.bereit) k.topic + "/…" else "-"}\n" +
+                    "Kiosk: ${if (k.kioskAktiv) "aktiv" else "aus"} (${k.startUrlWirksam})\n" +
                     "Bildschirmfoto: ${if (Bildschirmfoto.erlaubt) "erlaubt" else "noch nicht erlaubt"}\n" +
                     "Vordergrund-App: ${Status.vordergrund(this@MainActivity) ?: "unbekannt"}"
             h.postDelayed(this, 1000)

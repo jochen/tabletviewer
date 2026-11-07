@@ -38,6 +38,64 @@ class Konfig(ctx: Context) {
         get() = p.getString("update_basis", "http://192.168.7.23:8080/app/") ?: ""
         set(v) = p.edit().putString("update_basis", v.trim()).apply()
 
+    // --- Kiosk (Ersatz fuer WallPanel) ---
+
+    /** Kiosk beim Booten starten und vorne halten. */
+    var kioskAktiv: Boolean
+        get() = p.getBoolean("kiosk_aktiv", false)
+        set(v) = p.edit().putBoolean("kiosk_aktiv", v).apply()
+
+    /** Leer = Flur-Seite des tabletviewers mit ?geraet=<geraet>. */
+    var startUrl: String
+        get() = p.getString("start_url", "") ?: ""
+        set(v) = p.edit().putString("start_url", v.trim()).apply()
+
+    val startUrlWirksam: String
+        get() = startUrl.ifEmpty { "http://192.168.7.23:8080/flur?geraet=$geraet" }
+
+    /** Auch auf wallpanel/<geraet>/command hoeren (erst einschalten, wenn WallPanel weg ist). */
+    var wallpanelTopic: Boolean
+        get() = p.getBoolean("wallpanel_topic", false)
+        set(v) = p.edit().putBoolean("wallpanel_topic", v).apply()
+
+    /** Beim Wecken mindestens so hell (0 = Helligkeit nicht anfassen). */
+    var weckenHelligkeit: Int
+        get() = p.getInt("wecken_helligkeit", 200)
+        set(v) = p.edit().putInt("wecken_helligkeit", v.coerceIn(0, 255)).apply()
+
+    /** Nach so vielen Sekunden auf dem Fire-Startbildschirm den Kiosk zurueckholen (0 = nie). */
+    var kioskZurueckS: Int
+        get() = p.getInt("kiosk_zurueck_s", 120)
+        set(v) = p.edit().putInt("kiosk_zurueck_s", v.coerceAtLeast(0)).apply()
+
+    /** Bildschirm anlassen, solange der Kiosk vorne ist. */
+    var bildschirmImmerAn: Boolean
+        get() = p.getBoolean("immer_an", true)
+        set(v) = p.edit().putBoolean("immer_an", v).apply()
+
+    fun kioskJson(): org.json.JSONObject = org.json.JSONObject()
+        .put("aktiv", kioskAktiv)
+        .put("start_url", startUrlWirksam)
+        .put("wallpanel_topic", wallpanelTopic)
+        .put("wecken_helligkeit", weckenHelligkeit)
+        .put("zurueck_s", kioskZurueckS)
+        .put("immer_an", bildschirmImmerAn)
+
+    /** {"aktiv":true,"start_url":"…",…}; liefert true, wenn neu verbunden werden muss. */
+    fun kioskSetzen(j: org.json.JSONObject): Boolean {
+        var neuVerbinden = false
+        if (j.has("aktiv")) kioskAktiv = j.getBoolean("aktiv")
+        if (j.has("start_url")) startUrl = j.getString("start_url")
+        if (j.has("wallpanel_topic")) {
+            neuVerbinden = j.getBoolean("wallpanel_topic") != wallpanelTopic
+            wallpanelTopic = j.getBoolean("wallpanel_topic")
+        }
+        if (j.has("wecken_helligkeit")) weckenHelligkeit = j.getInt("wecken_helligkeit")
+        if (j.has("zurueck_s")) kioskZurueckS = j.getInt("zurueck_s")
+        if (j.has("immer_an")) bildschirmImmerAn = j.getBoolean("immer_an")
+        return neuVerbinden
+    }
+
     val bereit: Boolean get() = GERAET_RE.matches(geraet) && mqttHost.isNotEmpty()
 
     /** Basis der MQTT-Topics: tablet/<geraet> */
@@ -55,6 +113,8 @@ class Konfig(ctx: Context) {
         i.getStringExtra("mqtt_port")?.toIntOrNull()?.let { mqttPort = it; geaendert = true }
         i.getStringExtra("mqtt_user")?.let { mqttUser = it; geaendert = true }
         i.getStringExtra("mqtt_pass")?.let { mqttPass = it; geaendert = true }
+        i.getStringExtra("start_url")?.let { startUrl = it; geaendert = true }
+        if (i.hasExtra("kiosk")) { kioskAktiv = i.getBooleanExtra("kiosk", false); geaendert = true }
         i.getStringExtra("update_basis")?.let { updateBasis = it; geaendert = true }
         i.getStringExtra("status_takt")?.toIntOrNull()?.let { statusTakt = it; geaendert = true }
         return geaendert
