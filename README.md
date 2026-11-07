@@ -11,9 +11,10 @@ the OpenClaw workspace.
 ## Target platform
 
 - **Device:** Amazon Fire 7, 5th gen (2015), **Android 5.1**, resolution **1024×600**.
-- **Display:** WallPanel WebView (already installed). Chosen over Fully Kiosk
-  because Fully dropped Android 5 support. Maintained fork:
-  `TheTimeWalker/wallpanel-android` (wallpanel.xyz) if a reinstall is needed.
+- **Display:** kiosk of our own **tablet agent** (`android/`, since 2026-11-07,
+  replacing WallPanel). It still understands the WallPanel MQTT commands, see
+  [android/README.md](android/README.md). The WebView is the Fire's system
+  WebView (Chrome 59).
 - **Main risk:** the **old WebView component** on Android 5.1 does not render
   modern CSS/JS reliably. → The web app MUST be deliberately plain: simple
   HTML/CSS, no modern framework trickery.
@@ -35,7 +36,7 @@ the OpenClaw workspace.
   Navigation via two large left/right tap zones (next/back), NO free scrolling
   (slips while cooking with greasy fingers). Plus a **back button** to the
   selection list; from page 2 on, the recipe title shows small in the header.
-- **Display sleep / wake:** WallPanel runs with **"Prevent Sleep" on** — the
+- **Display sleep / wake:** the kiosk runs with **"always on"** — the
   display is never actually turned off (otherwise the Fire keyguard with its
   swipe-to-unlock appears, which Android 5.1 won't reliably dismiss). The
   **dimming is done by the web app itself**: after inactivity a black overlay
@@ -84,7 +85,7 @@ Own service on a free port (proposed **8080**), NOT via the OpenClaw gateway (18
 
 | Route | Purpose |
 |---|---|
-| `GET /` | the WallPanel UI (static HTML/CSS/JS) |
+| `GET /` | the kitchen UI (static HTML/CSS/JS) |
 | `GET /api/state` | current state (list + active recipe); also polling fallback |
 | `POST /api/list` `{"recipes":["butter-chicken",…]}` | set curated tiles |
 | `POST /api/active` `{"recipe":"butter-chicken"}` | "jump to recipe X now" |
@@ -188,7 +189,7 @@ Layout of each file:
 ## Hallway tablet (calendar overlay on top of Home Assistant)
 
 Second device: Fire HD 10 (5th gen) in the hallway, **1280×800 landscape**,
-WallPanel. The page `GET /flur` shows **Home Assistant as a full-screen
+tablet agent kiosk. The page `GET /flur` shows **Home Assistant as a full-screen
 iframe** and lays the **family calendar** over it when needed. A tap hides the
 overlay and HA is usable immediately, without reloading. A small "Termine"
 button at the top centre brings the calendar back by hand.

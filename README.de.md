@@ -14,9 +14,10 @@ Markdown-Rezepte aus dem OpenClaw-Workspace an.
 ## Zielplattform
 
 - **Gerät:** Amazon Fire 7, 5. Gen (2015), **Android 5.1**, Auflösung **1024×600**.
-- **Anzeige:** WallPanel-WebView (bereits installiert). Gewählt statt Fully Kiosk,
-  weil Fully den Android-5-Support eingestellt hat. Gepflegter Fork:
-  `TheTimeWalker/wallpanel-android` (wallpanel.xyz), falls Neuinstallation nötig.
+- **Anzeige:** Kiosk des eigenen **Tablet-Agents** (`android/`, seit 2026-11-07,
+  ersetzt WallPanel). Er versteht die WallPanel-MQTT-Befehle weiter, siehe
+  [android/README.md](android/README.md). Die WebView ist die System-WebView
+  des Fire (Chrome 59).
 - **Hauptrisiko:** die **alte WebView-Komponente** auf Android 5.1 rendert
   moderne CSS/JS nicht zuverlässig. → Web-App MUSS bewusst schlicht sein:
   einfaches HTML/CSS, keine modernen Framework-Spielereien.
@@ -38,7 +39,7 @@ Markdown-Rezepte aus dem OpenClaw-Workspace an.
   Navigation über zwei große Tap-Zonen links/rechts (vor/zurück), KEIN freies
   Scrollen (verrutscht beim Kochen mit fettigen Fingern). Plus **Zurück-Button**
   zur Auswahlliste; ab Seite 2 läuft der Rezepttitel klein in der Kopfleiste mit.
-- **Display-Schlaf / Wecken:** WallPanel läuft mit **„Prevent Sleep" an** — das
+- **Display-Schlaf / Wecken:** Der Kiosk läuft mit **„immer an“** — das
   Display wird nie wirklich abgeschaltet (sonst käme der Fire-Keyguard mit
   Wischsperre, der sich auf Android 5.1 nicht zuverlässig wegdrücken lässt).
   Das **Dimmen macht die Web-App selbst**: nach Inaktivität legt sich ein
@@ -88,7 +89,7 @@ Gateway (18789).
 
 | Route | Zweck |
 |---|---|
-| `GET /` | die WallPanel-UI (statisches HTML/CSS/JS) |
+| `GET /` | die Küchen-UI (statisches HTML/CSS/JS) |
 | `GET /api/state` | aktueller Zustand (Liste + aktives Rezept); auch Polling-Fallback |
 | `POST /api/list` `{"recipes":["butter-chicken",…]}` | kuratierte Kacheln setzen |
 | `POST /api/active` `{"recipe":"butter-chicken"}` | „spring jetzt auf Rezept X" |
@@ -192,7 +193,7 @@ für den Großteil. Aufbau jeder Datei:
 
 ## Flur-Tablet (Kalender-Overlay über Home Assistant)
 
-Zweites Gerät: Fire HD 10 (5. Gen) im Flur, **1280×800 quer**, WallPanel. Die
+Zweites Gerät: Fire HD 10 (5. Gen) im Flur, **1280×800 quer**, Tablet-Agent-Kiosk. Die
 Seite `GET /flur` zeigt **Home Assistant als Vollbild-iframe** und legt bei
 Bedarf den **Familienkalender** darüber. Ein Tap blendet das Overlay aus, und HA
 ist sofort bedienbar, ohne neu zu laden. Oben mittig gibt es einen kleinen
