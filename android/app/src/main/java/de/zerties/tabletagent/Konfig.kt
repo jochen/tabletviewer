@@ -73,6 +73,11 @@ class Konfig(ctx: Context) {
         get() = p.getBoolean("immer_an", true)
         set(v) = p.edit().putBoolean("immer_an", v).apply()
 
+    /** HA-Frontend fuer die alte WebView nachbessern (env()/scrollTo). */
+    var haPatch: Boolean
+        get() = p.getBoolean("ha_patch", true)
+        set(v) = p.edit().putBoolean("ha_patch", v).apply()
+
     fun kioskJson(): org.json.JSONObject = org.json.JSONObject()
         .put("aktiv", kioskAktiv)
         .put("start_url", startUrlWirksam)
@@ -80,6 +85,7 @@ class Konfig(ctx: Context) {
         .put("wecken_helligkeit", weckenHelligkeit)
         .put("zurueck_s", kioskZurueckS)
         .put("immer_an", bildschirmImmerAn)
+        .put("ha_patch", haPatch)
 
     /** {"aktiv":true,"start_url":"…",…}; liefert true, wenn neu verbunden werden muss. */
     fun kioskSetzen(j: org.json.JSONObject): Boolean {
@@ -93,6 +99,7 @@ class Konfig(ctx: Context) {
         if (j.has("wecken_helligkeit")) weckenHelligkeit = j.getInt("wecken_helligkeit")
         if (j.has("zurueck_s")) kioskZurueckS = j.getInt("zurueck_s")
         if (j.has("immer_an")) bildschirmImmerAn = j.getBoolean("immer_an")
+        if (j.has("ha_patch")) haPatch = j.getBoolean("ha_patch")
         return neuVerbinden
     }
 

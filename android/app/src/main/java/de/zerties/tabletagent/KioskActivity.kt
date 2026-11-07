@@ -71,6 +71,13 @@ class KioskActivity : Activity() {
             override fun shouldOverrideUrlLoading(view: WebView, url: String) = false
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest) = false
 
+            // HA-Frontend fuer Chrome 59 nachbessern (siehe HaPatch)
+            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): android.webkit.WebResourceResponse? {
+                val url = request.url.toString()
+                if (k.haPatch && request.method == "GET" && HaPatch.betrifft(url)) return HaPatch.abfangen(applicationContext, url)
+                return null
+            }
+
             override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
                 fehler = null
             }
@@ -107,6 +114,7 @@ class KioskActivity : Activity() {
         setContentView(web)
         vollbild()
         aktiv = WeakReference(this)
+        Thread { HaPatch.aufraeumen(applicationContext) }.start()
         laden(intent?.getStringExtra("url") ?: k.startUrlWirksam)
     }
 
@@ -196,6 +204,7 @@ class KioskActivity : Activity() {
         .put("url", web.url ?: aktuelleUrl)
         .put("fehler", fehler ?: JSONObject.NULL)
         .put("geladen_um_ms", if (geladenUm > 0) geladenUm else JSONObject.NULL)
+        .put("ha_patch_dateien", HaPatch.gepatcht)
 
     @Suppress("DEPRECATION")
     private fun vollbild() {

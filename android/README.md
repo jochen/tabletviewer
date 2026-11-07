@@ -108,7 +108,12 @@ die installierte App spielen, dann hilft nur Deinstallieren.
   Amazon-Konto entfernen oder einmal per Kabel
   `adb shell pm disable-user com.amazon.kindle.kso`.
 - Die WebView ist Chrome 59 (Amazon WebView, nicht aktualisierbar). HA liefert
-  `frontend_es5`, hat aber Fehler (z. B. `scrollTo` mit Optionen). Siehe `konsole`.
+  `frontend_es5`, nutzt darin aber CSS mit `env(safe-area-inset-*)` (ab Chrome 69).
+  Chrome 59 verwirft solche Regeln, unter anderem den Abstand unter der Kopfleiste:
+  Die Kacheln rutschen unter die Leiste. **HaPatch** fängt die Skripte unter
+  `/frontend_es5/` ab und ersetzt `env(…)` durch den Ersatzwert bzw. `0px`. Dazu
+  kommt ein Polyfill für `scrollTo({…})`. Die gepatchten Dateien werden auf dem
+  Tablet zwischengespeichert. Abschalten mit `{"kiosk":{"ha_patch":false}}`.
 
 - Die Vordergrund-App kommt aus `/proc` (bis Android 6 ohne Berechtigung lesbar).
   Den Nutzungsdatenzugriff versteckt Fire OS, er wird nicht gebraucht.
