@@ -187,10 +187,30 @@ class Befehle(private val ctx: Context, private val ausgabe: Ausgabe) {
     // Nachts steht die Helligkeit auf 0 (Zeitschaltuhr in Node-RED). Klingelt es,
     // soll man trotzdem etwas sehen: fuer die Weckzeit mindestens wecken_helligkeit,
     // danach zurueck auf den Wert, der zuletzt per Befehl gesetzt wurde.
+    // Der Rueckstellwert wird auch in den Einstellungen gemerkt, damit er einen
+    // Neustart der App (Update, Absturz) uebersteht.
+    private val prefs = ctx.getSharedPreferences("wecken", Context.MODE_PRIVATE)
+
     @Volatile private var helligkeitNachWecken: Int? = null
+        set(v) {
+            field = v
+            if (v == null) prefs.edit().clear().apply()
+            else prefs.edit().putInt("hell", v).apply()
+        }
     private val weckenEnde = Runnable {
         helligkeitNachWecken?.let { setzeHelligkeit(it) }
         helligkeitNachWecken = null
+    }
+
+    init {
+        // Offene Rueckstellung von vor dem Neustart nachholen
+        if (prefs.contains("hell")) {
+            val v = prefs.getInt("hell", 255)
+            val bis = prefs.getLong("bis", 0)
+            helligkeitNachWecken = v
+            prefs.edit().putLong("bis", bis).apply()
+            main.postDelayed(weckenEnde, maxOf(0L, bis - System.currentTimeMillis()))
+        }
     }
 
     @Suppress("DEPRECATION")
@@ -209,6 +229,7 @@ class Befehle(private val ctx: Context, private val ausgabe: Ausgabe) {
                 setzeHelligkeit(ziel)
             }
             if (helligkeitNachWecken != null) {
+                prefs.edit().putLong("bis", System.currentTimeMillis() + dauer).apply()
                 main.removeCallbacks(weckenEnde)
                 main.postDelayed(weckenEnde, dauer)
             }

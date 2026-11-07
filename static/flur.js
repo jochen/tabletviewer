@@ -21,6 +21,14 @@
   var heartbeatTimer = null;
   var lastWsRx = 0;
 
+  // Fuer den Tablet-Agent (Kiosk): wie lange ist der letzte Kontakt zum Server
+  // her (WS-Nachricht oder erfolgreicher Poll)? Haengt die Seite, obwohl der
+  // Server erreichbar ist, laedt der Agent sie neu.
+  var letzterKontakt = new Date().getTime();
+  window.tabletAgentPruefen = function () {
+    return { kontakt_vor_s: Math.round((new Date().getTime() - letzterKontakt) / 1000) };
+  };
+
   var uhrVersatz = 0;      // Serverzeit - Tabletzeit in ms
   var hideTimer = null;
   var haUrl = null;
@@ -57,6 +65,7 @@
     xhr.open("GET", "/api/flur/state?von=seite" + geraetQ, true);
     xhr.onreadystatechange = function () {
       if (xhr.readyState === 4 && xhr.status === 200) {
+        letzterKontakt = new Date().getTime();
         try {
           apply(JSON.parse(xhr.responseText));
         } catch (e) {
@@ -105,6 +114,7 @@
     };
     sock.onmessage = function (evt) {
       lastWsRx = new Date().getTime();
+      letzterKontakt = lastWsRx;
       try {
         var msg = JSON.parse(evt.data);
         if (msg.type === "pong") {

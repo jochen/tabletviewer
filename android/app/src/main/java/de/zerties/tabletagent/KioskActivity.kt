@@ -114,6 +114,8 @@ class KioskActivity : Activity() {
         setContentView(web)
         vollbild()
         aktiv = WeakReference(this)
+        letzteAntwortMs = System.currentTimeMillis()
+        seitenKontaktVorS = null
         Thread { HaPatch.aufraeumen(applicationContext) }.start()
         laden(intent?.getStringExtra("url") ?: k.startUrlWirksam)
     }
@@ -126,6 +128,7 @@ class KioskActivity : Activity() {
     override fun onResume() {
         super.onResume()
         vorne = true
+        letzteAntwortMs = System.currentTimeMillis()   // Pausen nicht als Haenger werten
         vollbild()
         bildschirmAn(k.bildschirmImmerAn)
     }
@@ -158,6 +161,7 @@ class KioskActivity : Activity() {
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
         if (ev.actionMasked == MotionEvent.ACTION_DOWN) {
+            letzteBeruehrungMs = System.currentTimeMillis()
             val ecke = 80 * resources.displayMetrics.density
             if (ev.x < ecke && ev.y < ecke) {
                 val t = SystemClock.uptimeMillis()
@@ -194,6 +198,17 @@ class KioskActivity : Activity() {
 
     fun js(code: String, fertig: (String?) -> Unit) = web.evaluateJavascript(code) { fertig(it) }
 
+    /** Lebenszeichen der Seite holen (fuer die Selbstheilung). */
+    fun pruefen() {
+        web.evaluateJavascript(PRUEF_JS) { r ->
+            letzteAntwortMs = System.currentTimeMillis()
+            seitenKontaktVorS = try {
+                val text = org.json.JSONTokener(r).nextValue() as? String
+                JSONObject(text ?: "{}").optJSONObject("p")?.optInt("kontakt_vor_s", -1)?.takeIf { it >= 0 }
+            } catch (e: Exception) { null }
+        }
+    }
+
     fun bildschirmAn(an: Boolean) {
         if (an) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -218,7 +233,23 @@ class KioskActivity : Activity() {
 
     companion object {
         private const val TAG = "Kiosk"
+        private const val PRUEF_JS = "(function(){try{var p=window.tabletAgentPruefen?window.tabletAgentPruefen():null;" +
+                "return JSON.stringify({rs:document.readyState,p:p})}catch(e){return JSON.stringify({fehler:String(e)})}})()"
         @Volatile private var aktiv: WeakReference<KioskActivity>? = null
+        @Volatile var letzteAntwortMs = 0L
+        @Volatile var letzteBeruehrungMs = 0L
+        /** Sekunden seit dem letzten Serverkontakt laut Seite (null = Seite meldet nichts). */
+        @Volatile var seitenKontaktVorS: Int? = null
+        val laeuft: Boolean get() = aktiv?.get()?.let { !it.isDestroyed && !it.isFinishing } ?: false
+
+        /** Kiosk schliessen und frisch starten (neue WebView, Speicher frei). */
+        fun neuAufbauen(ctx: Context) {
+            val a = aktiv?.get()
+            main.post {
+                a?.finish()
+                main.postDelayed({ nachVorne(ctx) }, 1500)
+            }
+        }
         @Volatile var vorne = false
             private set
 

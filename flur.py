@@ -459,7 +459,8 @@ async def _json_body(request):
 # --- HTTP-Handler ---
 
 async def handle_page(request):
-    return web.FileResponse(os.path.join(STATIC_DIR, "flur.html"))
+    return web.FileResponse(os.path.join(STATIC_DIR, "flur.html"),
+                            headers={"Cache-Control": "no-cache"})   # neue ?v= sofort sichtbar
 
 
 async def handle_state(request):

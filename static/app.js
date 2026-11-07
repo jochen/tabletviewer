@@ -22,6 +22,14 @@
   var heartbeatTimer = null;
   var lastWsRx = 0;
 
+  // Fuer den Tablet-Agent (Kiosk): wie lange ist der letzte Kontakt zum Server
+  // her (WS-Nachricht oder erfolgreicher Poll)? Haengt die Seite, obwohl der
+  // Server erreichbar ist, laedt der Agent sie neu.
+  var letzterKontakt = new Date().getTime();
+  window.tabletAgentPruefen = function () {
+    return { kontakt_vor_s: Math.round((new Date().getTime() - letzterKontakt) / 1000) };
+  };
+
   // Bildschirm-"Schlaf" rein in der Web-App: nach dieser Inaktivitaet legt
   // sich ein schwarzes Overlay drueber. Android schaltet das Display NICHT
   // ab (WallPanel "Prevent Sleep" bleibt an), darum kommt kein Fire-Keyguard
@@ -45,6 +53,7 @@
     xhr.open("GET", "/api/state", true);
     xhr.onreadystatechange = function () {
       if (xhr.readyState === 4 && xhr.status === 200) {
+        letzterKontakt = new Date().getTime();
         try {
           var data = JSON.parse(xhr.responseText);
           applyState(data);
@@ -321,6 +330,7 @@
 
     sock.onmessage = function (evt) {
       lastWsRx = new Date().getTime();
+      letzterKontakt = lastWsRx;
       try {
         var data = JSON.parse(evt.data);
         if (data && data.type === "pong") {

@@ -78,6 +78,11 @@ class Konfig(ctx: Context) {
         get() = p.getBoolean("ha_patch", true)
         set(v) = p.edit().putBoolean("ha_patch", v).apply()
 
+    /** Uhrzeit fuer den naechtlichen Neuaufbau des Kiosk ("" = aus). */
+    var nachtNeustart: String
+        get() = p.getString("nacht_neustart", "04:00") ?: ""
+        set(v) = p.edit().putString("nacht_neustart", v.trim()).apply()
+
     fun kioskJson(): org.json.JSONObject = org.json.JSONObject()
         .put("aktiv", kioskAktiv)
         .put("start_url", startUrlWirksam)
@@ -86,6 +91,7 @@ class Konfig(ctx: Context) {
         .put("zurueck_s", kioskZurueckS)
         .put("immer_an", bildschirmImmerAn)
         .put("ha_patch", haPatch)
+        .put("nacht_neustart", nachtNeustart)
 
     /** {"aktiv":true,"start_url":"…",…}; liefert true, wenn neu verbunden werden muss. */
     fun kioskSetzen(j: org.json.JSONObject): Boolean {
@@ -100,6 +106,7 @@ class Konfig(ctx: Context) {
         if (j.has("zurueck_s")) kioskZurueckS = j.getInt("zurueck_s")
         if (j.has("immer_an")) bildschirmImmerAn = j.getBoolean("immer_an")
         if (j.has("ha_patch")) haPatch = j.getBoolean("ha_patch")
+        if (j.has("nacht_neustart")) nachtNeustart = j.getString("nacht_neustart")
         return neuVerbinden
     }
 

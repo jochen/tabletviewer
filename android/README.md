@@ -62,6 +62,37 @@ Befehle (die WallPanel-Namen `brightness`, `wake`/`wakeTime`, `volume`, `speak` 
 - Admin am Tablet: fünfmal schnell in die linke obere Ecke tippen. Das öffnet die
   Einstellungen, dort gibt es „Zum Kiosk“.
 - Der Kiosk hat einen eigenen WebView-Speicher, HA muss einmal angemeldet werden.
+- `nacht_neustart` (Standard `04:00`, `""` = aus): Der Kiosk wird nachts einmal
+  frisch aufgebaut, wenn 10 min niemand getippt hat.
+
+## Selbstheilung
+
+Der Agent prüft alle 15 s von seinem eigenen Thread aus, also auch, wenn die
+WebView hängt:
+
+1. **Lebenszeichen:** Alle 30 s fragt er die Seite per JavaScript ab. Bleibt die
+   Antwort 90 s aus, eskaliert er im Abstand von je 60 s: erst neu laden, dann
+   den Kiosk neu aufbauen, zuletzt den App-Prozess neu starten (Alarm in 3 s).
+2. **Serverkontakt der Seite:** Beide Seiten (`app.js`, `flur.js`) stellen
+   `window.tabletAgentPruefen()` bereit. Das liefert `{kontakt_vor_s}`, also die
+   Zeit seit der letzten WS-Nachricht oder dem letzten erfolgreichen Poll. Liegt
+   das über 5 min und ist der Server erreichbar, lädt der Agent neu, höchstens
+   alle 10 min.
+3. **Nachts** einmal neu aufbauen (`nacht_neustart`).
+4. **MQTT:** Ist der Client 5 min getrennt, wird er neu aufgebaut.
+
+Jeder Eingriff erscheint auf `konsole` (`level: SELBSTHEILUNG`). Die Zähler
+stehen im Status unter `kiosk.selbstheilung`.
+
+Die Seiten `/` und `/flur` liefert der Server mit `Cache-Control: no-cache` aus.
+Sonst nimmt die WebView die alte HTML aus dem Cache, und neue `?v=` kommen
+nicht an.
+
+## Gaston
+
+Der OpenClaw-Skill `tablets` (`~/.openclaw/workspace/skills/tablets/`) bietet
+`liste`, `status`, `foto`, `neu-laden`, `vorne`, `wecken`, `aktualisieren` und
+`befehl`.
 
 Beispiel:
 

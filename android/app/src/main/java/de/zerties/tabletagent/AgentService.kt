@@ -54,6 +54,11 @@ class AgentService : Service(), Befehle.Ausgabe {
         startForeground(1, benachrichtigung("startet …"))
         befehle = Befehle(this, this)
         instanz = this
+        heilung = Selbstheilung(this, k) { text ->
+            Log.i(TAG, text)
+            konsoleSenden(JSONObject().put("level", "SELBSTHEILUNG").put("text", text))
+        }
+        planeKioskWache()      // laeuft immer, auch ohne MQTT
         // Das Tablet haengt am Netzteil: CPU und WLAN wach halten, sonst schlaeft
         // die MQTT-Verbindung bei dunklem Bildschirm ein.
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
@@ -143,7 +148,6 @@ class AgentService : Service(), Befehle.Ausgabe {
             client = c
             c.connect(opt)
             planeStatus()
-            planeKioskWache()
         } catch (e: Exception) {
             Log.w(TAG, "verbinden", e)
             client = null
@@ -158,7 +162,6 @@ class AgentService : Service(), Befehle.Ausgabe {
 
     private fun trennen() {
         h.removeCallbacks(statusTakt)
-        h.removeCallbacks(kioskWache)
         val c = client ?: return
         client = null
         try {
@@ -191,7 +194,8 @@ class AgentService : Service(), Befehle.Ausgabe {
     private fun statusSenden() {
         try {
             val j = Status.sammeln(this, k)
-            j.put("kiosk", k.kioskJson().put("laeuft", KioskActivity.zustandSync() ?: JSONObject.NULL))
+            j.put("kiosk", k.kioskJson().put("laeuft", KioskActivity.zustandSync() ?: JSONObject.NULL)
+                .put("selbstheilung", heilung?.json() ?: JSONObject.NULL))
             senden("status", j.toString().toByteArray(), retained = true)
         } catch (e: Exception) { Log.w(TAG, "status", e) }
     }
@@ -215,6 +219,11 @@ class AgentService : Service(), Befehle.Ausgabe {
     private val kioskWache = object : Runnable {
         override fun run() {
             try { kioskPruefen() } catch (e: Exception) { Log.w(TAG, "Kiosk-Wache", e) }
+            try { heilung?.pruefen() } catch (e: Exception) { Log.w(TAG, "Selbstheilung", e) }
+            try {
+                val c = client
+                if (heilung?.mqttPruefen(c?.isConnected == true, c != null) == true) { trennen(); verbinden() }
+            } catch (e: Exception) { Log.w(TAG, "MQTT-Wache", e) }
             h.postDelayed(this, 15_000)
         }
     }
@@ -225,6 +234,7 @@ class AgentService : Service(), Befehle.Ausgabe {
     }
 
     private var kioskGestartet = false
+    private var heilung: Selbstheilung? = null
 
     // Sperrbildschirm (bei Fire OS mit Werbung) aus, solange der Kiosk aktiv ist
     @Suppress("DEPRECATION")

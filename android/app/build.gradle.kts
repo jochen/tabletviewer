@@ -20,8 +20,8 @@ android {
         // Verhalten der Tablets, Berechtigungen wie WRITE_SETTINGS gelten ab Installation.
         minSdk = 21
         targetSdk = 22
-        versionCode = 8
-        versionName = "0.3.0"
+        versionCode = 9
+        versionName = "0.4.0"
     }
 
     compileOptions {
